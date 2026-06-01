@@ -1,0 +1,8 @@
+[2026-06-01T13:08:55.920Z] [DEBUG] log Relay->Editor communication is blocked
+[2026-06-01T13:08:55.924Z] [DEBUG] acp.queue.pause depth=0
+[2026-06-01T13:08:55.934Z] [INFO] log Client disconnected - blocking and caching for recovery
+[2026-06-01T13:08:55.937Z] [WARN] connection.lost clientId=null
+[2026-06-01T13:08:55.937Z] [WARN] log Client disconnected - sessions will persist until auto-shutdown, reason: Client disconnected
+[2026-06-01T13:08:55.939Z] [INFO] log Auto-shutdown timer started due to client disconnection
+[2026-06-01T13:11:56.015Z] [INFO] log Auto-shutdown timer fired after 180s inactivity, shutting down: Dedicated client disconnected
+[2026-06-01T13:11:56.030Z] [INFO] log Shutdown: Initiating graceful shutdown: Dedicated client disconnected

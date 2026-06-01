@@ -123,5 +123,25 @@ namespace NeoFastRider.Moto
             _isDead = true;
             OnRunnerDeath?.Invoke();
         }
-    }
+    
+        /// <summary>
+        /// Clamps integrity to a minimum value — used by the immortal sandbox tutorial rule.
+        /// </summary>
+        public void ClampIntegrityMin(float minValue)
+        {
+            if (_currentIntegrity < minValue)
+                _currentIntegrity = minValue;
+        }
+
+        /// <summary>
+        /// Force-restores integrity to a given value, clearing the dead flag if needed.
+        /// Used by TutorialManager fail-safe reset.
+        /// </summary>
+        public void ForceRestoreIntegrity(float value)
+        {
+            _isDead           = false;
+            _currentEnergy    = Mathf.Clamp(value, 0f, MaxEnergy);
+            _currentIntegrity = Mathf.Clamp(value, 0f, MaxIntegrity);
+        }
+}
 }

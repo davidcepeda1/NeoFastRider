@@ -1,3 +1,4 @@
+using UnityEngine.InputSystem;
 using UnityEngine;
 
 namespace NeoFastRider.Moto
@@ -25,6 +26,16 @@ namespace NeoFastRider.Moto
 
         [Tooltip("Multiplier applied during Sacrificial Boost activation.")]
         [SerializeField] private float _boostMultiplier = 2.5f;
+
+        [Header("Tutorial Velocity Tiers")]
+        [Tooltip("Base auto-forward speed (no input). Displays as 60 km/h on HUD.")]
+        [SerializeField] private float _baseTutorialSpeed    = 15f;
+        [Tooltip("Max manual acceleration ('W' held). Displays as 120 km/h on HUD.")]
+        [SerializeField] private float _accelerateSpeed      = 30f;
+        [Tooltip("Extreme boost ('LeftShift'). Displays as 180 km/h on HUD.")]
+        [SerializeField] private float _extremeBoostSpeed    = 45f;
+        [Tooltip("Enable tutorial velocity tiers (disable for normal gameplay).")]
+        [SerializeField] private bool  _tutorialModeActive   = false;
 
         [Header("Lateral Motion")]
         [Tooltip("Units per second for lane-switch interpolation.")]
@@ -57,6 +68,15 @@ namespace NeoFastRider.Moto
             set => _baseForwardSpeed = Mathf.Max(0f, value);
         }
 
+        /// <summary>Current actual forward speed this frame — read by RunnerVisorHUD.</summary>
+        public float ActiveForwardSpeed => _activeForwardSpeed;
+
+        /// <summary>
+        /// Current speed in km/h (raw units × 4). Drives the Runner HUD speedometer.
+        /// Tutorial mapping: 15 u/s = 60 km/h | 30 u/s = 120 km/h | 45 u/s = 180 km/h
+        /// </summary>
+        public float CurrentKmh => _activeForwardSpeed * 4f;
+
         // ─── Unity Lifecycle ─────────────────────────────────────────────────────
         private void Awake()
         {
@@ -75,9 +95,25 @@ namespace NeoFastRider.Moto
             float dt = Time.deltaTime;
 
             // ── Forward movement (world-space forward on local Up-Vector basis) ──
-            float speed = _isBoostActive
-                ? _baseForwardSpeed * _boostMultiplier
-                : _baseForwardSpeed;
+            float speed;
+            if (_tutorialModeActive)
+            {
+                // Tutorial tier: LeftShift > W held > base auto
+                bool shiftHeld = UnityEngine.InputSystem.Keyboard.current != null &&
+                                 UnityEngine.InputSystem.Keyboard.current.leftShiftKey.isPressed;
+                bool wHeld     = UnityEngine.InputSystem.Keyboard.current != null &&
+                                 UnityEngine.InputSystem.Keyboard.current.wKey.isPressed;
+
+                speed = shiftHeld ? _extremeBoostSpeed
+                      : wHeld     ? _accelerateSpeed
+                      :             _baseTutorialSpeed;
+            }
+            else
+            {
+                speed = _isBoostActive
+                    ? _baseForwardSpeed * _boostMultiplier
+                    : _baseForwardSpeed;
+            }
 
             _activeForwardSpeed = Mathf.MoveTowards(_activeForwardSpeed, speed, 50f * dt);
             transform.position += transform.forward * (_activeForwardSpeed * dt);
@@ -155,6 +191,9 @@ namespace NeoFastRider.Moto
         {
             SetGravityDirection(Vector3.up);
         }
+
+        /// <summary>Enables or disables tutorial velocity tier mode at runtime.</summary>
+        public void SetTutorialMode(bool active) => _tutorialModeActive = active;
 
         /// <summary>
         /// Sets the base forward speed directly (e.g. on level progression).

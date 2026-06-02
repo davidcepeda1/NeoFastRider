@@ -40,7 +40,7 @@ namespace NeoFastRider.UI
         {
             // Ensure sub-panels start hidden
             SetPanelActive(_levelSelectPanel, false);
-            SetPanelActive(_optionsPanel,     false);
+            // Panel_Options visibility is managed exclusively by OptionsController via CanvasGroup.
         }
 
         // ── Public API (bound to UI buttons via Inspector) ────────────────────────

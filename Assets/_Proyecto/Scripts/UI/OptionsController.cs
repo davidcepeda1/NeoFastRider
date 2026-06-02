@@ -79,7 +79,12 @@ namespace NeoFastRider.UI
         // ── Unity Lifecycle ───────────────────────────────────────────────────
         private void Awake()
         {
-            // Guarantee hidden state on boot regardless of scene serialization
+            // Panel GO must be ACTIVE so CanvasGroup alpha can control visibility.
+            // MainMenuController must NOT call SetActive(false) on this panel.
+            if (_optionsPanelCG != null)
+                _optionsPanelCG.gameObject.SetActive(true);
+
+            // Hide via CanvasGroup alpha — GO stays active, content invisible
             SetPanelState(_optionsPanelCG, 0f, false);
             HideFeedback();
         }
@@ -163,6 +168,9 @@ namespace NeoFastRider.UI
         private IEnumerator FadeMenuToOptions()
         {
             _transitioning = true;
+            // Safety: ensure panel GO is active before fading (CanvasGroup requires active GO)
+            if (_optionsPanelCG != null)
+                _optionsPanelCG.gameObject.SetActive(true);
             // Parallel: menu buttons → 0, options panel → 1
             yield return FadeParallel(_menuButtonsCG, 1f, 0f,
                                       _optionsPanelCG,  0f, 1f,

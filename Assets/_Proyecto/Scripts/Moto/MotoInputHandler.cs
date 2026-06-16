@@ -27,12 +27,21 @@ namespace NeoFastRider.Moto
         /// <summary>Fired on Clean Visor button press.</summary>
         public event System.Action OnCleanTriggered;
 
+        /// <summary>
+        /// Fired ONCE per discrete lane-step input (edge detection).
+        /// Argument: -1 = left (A), +1 = right (D).
+        /// </summary>
+        public event System.Action<int> OnLaneStepTriggered;
+
         // ─── Private State ────────────────────────────────────────────────────────
         private NeoFastRiderInput _inputAsset;
         private NeoFastRiderInput.GameplayActions _gameplay;
 
         /// <summary>Raw X-axis lateral input this frame, range [-1, 1].</summary>
         private float _lateralAxis;
+
+        /// <summary>Edge-detection flag: true while axis is in neutral zone.</summary>
+        private bool _lateralWasNeutral = true;
 
         // ─── Properties (read-only, allocation-free) ─────────────────────────────
 
@@ -87,11 +96,20 @@ namespace NeoFastRider.Moto
         {
             // 1DAxis composite returns a float; we store it to build a Vector2 on demand
             _lateralAxis = ctx.ReadValue<float>();
+
+            // Edge detection: fire OnLaneStepTriggered ONCE when leaving neutral
+            const float threshold = 0.5f;
+            if (_lateralWasNeutral && Mathf.Abs(_lateralAxis) >= threshold)
+            {
+                _lateralWasNeutral = false;
+                OnLaneStepTriggered?.Invoke(_lateralAxis > 0f ? 1 : -1);
+            }
         }
 
         private void OnLateralCanceled(InputAction.CallbackContext ctx)
         {
             _lateralAxis = 0f;
+            _lateralWasNeutral = true;
         }
 
         private void OnPulsePerformed(InputAction.CallbackContext ctx)

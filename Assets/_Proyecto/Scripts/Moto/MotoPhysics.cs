@@ -55,6 +55,8 @@ namespace NeoFastRider.Moto
         private float _currentLateralOffset;
         private float _targetLateralOffset;
         private bool  _isBoostActive;
+        [Tooltip("Si true, MotoRailController controla la posicion — MotoPhysics no mueve el transform.")]
+        [SerializeField] private bool  _railControlled = false;
         private float _activeForwardSpeed;
 
         // Gravity rotation state (no allocations in Update)
@@ -116,7 +118,8 @@ namespace NeoFastRider.Moto
             }
 
             _activeForwardSpeed = Mathf.MoveTowards(_activeForwardSpeed, speed, 50f * dt);
-            transform.position += transform.forward * (_activeForwardSpeed * dt);
+            if (!_railControlled)
+                transform.position += transform.forward * (_activeForwardSpeed * dt);
 
             // ── Lateral movement (MoveTowards = responsive, no overshoot) ────────
             _currentLateralOffset = Mathf.MoveTowards(

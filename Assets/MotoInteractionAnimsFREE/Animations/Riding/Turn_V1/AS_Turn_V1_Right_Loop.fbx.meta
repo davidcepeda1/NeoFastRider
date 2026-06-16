@@ -1,7 +1,14 @@
 fileFormatVersion: 2
 guid: c5be7a40202287146bbdc84a3dd7e12d
+AssetOrigin:
+  serializedVersion: 1
+  productId: 374820
+  packageName: Motorcycle Interaction Animset FREE
+  packageVersion: 1.0
+  assetPath: Assets/MotoInteractionAnimsFREE/Animations/Riding/Turn_V1/AS_Turn_V1_Right_Loop.fbx
+  uploadId: 902864
 ModelImporter:
-  serializedVersion: 22200
+  serializedVersion: 24200
   internalIDToNameTable: []
   externalObjects: {}
   materials:
@@ -16,8 +23,6 @@ ModelImporter:
     optimizeGameObjects: 0
     removeConstantScaleCurves: 0
     motionNodeName: 
-    rigImportErrors: 
-    rigImportWarnings: 
     animationImportErrors: 
     animationImportWarnings: 
     animationRetargetingWarnings: 
@@ -46,10 +51,10 @@ ModelImporter:
       hasAdditiveReferencePose: 0
       loopTime: 1
       loopBlend: 0
-      loopBlendOrientation: 1
-      loopBlendPositionY: 1
-      loopBlendPositionXZ: 1
-      keepOriginalOrientation: 1
+      loopBlendOrientation: 0
+      loopBlendPositionY: 0
+      loopBlendPositionXZ: 0
+      keepOriginalOrientation: 0
       keepOriginalPositionY: 1
       keepOriginalPositionXZ: 0
       heightFromFeet: 0
@@ -60,7 +65,7 @@ ModelImporter:
       transformMask: []
       maskType: 3
       maskSource: {instanceID: 0}
-      additiveReferencePoseFrame: 57
+      additiveReferencePoseFrame: 0
     isReadable: 0
   meshes:
     lODScreenPercentages: []
@@ -87,6 +92,9 @@ ModelImporter:
     maxBonesPerVertex: 4
     minBoneWeight: 0.001
     optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
     meshOptimizationFlags: -1
     indexFormat: 0
     secondaryUVAngleDistortion: 8
@@ -596,8 +604,7 @@ ModelImporter:
     - name: MiddleFinger3_R
       parentName: MiddleFinger2_R
       position: {x: -0.02081966, y: 3.5527136e-17, z: -7.81597e-16}
-      rotation: {x: -0.0000000011641531, y: -0.00000005308538, z: 0.00000001481885,
-        w: 1}
+      rotation: {x: -0.0000000011641531, y: -0.00000005308538, z: 0.00000001481885, w: 1}
       scale: {x: 1.0000002, y: 1.0000001, z: 1.0000002}
     - name: MiddleFinger4_R
       parentName: MiddleFinger3_R
@@ -617,8 +624,7 @@ ModelImporter:
     - name: ThumbFinger3_R
       parentName: ThumbFinger2_R
       position: {x: -0.022254923, y: 2.842171e-16, z: 1.8829381e-15}
-      rotation: {x: 0.000000007450581, y: -0.000000022351742, z: 0.000000011175871,
-        w: 1}
+      rotation: {x: 0.000000007450581, y: -0.000000022351742, z: 0.000000011175871, w: 1}
       scale: {x: 0.99999994, y: 1, z: 0.99999994}
     - name: ThumbFinger4_R
       parentName: ThumbFinger3_R
@@ -658,8 +664,7 @@ ModelImporter:
     - name: RingFinger3_R
       parentName: RingFinger2_R
       position: {x: -0.020050447, y: -7.105427e-17, z: -3.126388e-15}
-      rotation: {x: 0.0000000029685907, y: 0.000000078231096, z: 0.000000004656613,
-        w: 1}
+      rotation: {x: 0.0000000029685907, y: 0.000000078231096, z: 0.000000004656613, w: 1}
       scale: {x: 1.0000004, y: 1.0000002, z: 1.0000002}
     - name: RingFinger4_R
       parentName: RingFinger3_R
@@ -679,8 +684,7 @@ ModelImporter:
     - name: PinkyFinger3_R
       parentName: PinkyFinger2_R
       position: {x: -0.01494542, y: -2.4868996e-16, z: -1.811884e-15}
-      rotation: {x: 0.0000000018626449, y: 0.00000002235174, z: 0.00000003550667,
-        w: 1}
+      rotation: {x: 0.0000000018626449, y: 0.00000002235174, z: 0.00000003550667, w: 1}
       scale: {x: 0.99999994, y: 1.0000002, z: 1}
     - name: PinkyFinger4_R
       parentName: PinkyFinger3_R
@@ -735,8 +739,7 @@ ModelImporter:
     - name: MiddleFinger3_L
       parentName: MiddleFinger2_L
       position: {x: 0.02081966, y: -7.105427e-17, z: 1.3500312e-15}
-      rotation: {x: -0.000000117492164, y: 0.000000070780516, z: 0.000000011175871,
-        w: 1}
+      rotation: {x: -0.000000117492164, y: 0.000000070780516, z: 0.000000011175871, w: 1}
       scale: {x: 1.0000002, y: 1, z: 0.99999994}
     - name: MiddleFinger4_L
       parentName: MiddleFinger3_L
@@ -756,8 +759,7 @@ ModelImporter:
     - name: ThumbFinger3_L
       parentName: ThumbFinger2_L
       position: {x: 0.022254923, y: 1.4210854e-16, z: -1.9895197e-15}
-      rotation: {x: 0.000000017214916, y: 0.000000045634806, z: 0.00000004329371,
-        w: 1}
+      rotation: {x: 0.000000017214916, y: 0.000000045634806, z: 0.00000004329371, w: 1}
       scale: {x: 0.9999998, y: 0.9999998, z: 1}
     - name: ThumbFinger4_L
       parentName: ThumbFinger3_L
@@ -777,8 +779,7 @@ ModelImporter:
     - name: IndexFinger3_L
       parentName: IndexFinger2_L
       position: {x: 0.023102218, y: 7.105427e-17, z: 1.7053025e-15}
-      rotation: {x: 0.000000025844193, y: -0.000000030733634, z: 0.000000022042506,
-        w: 1}
+      rotation: {x: 0.000000025844193, y: -0.000000030733634, z: 0.000000022042506, w: 1}
       scale: {x: 1.0000007, y: 1.0000002, z: 1.0000001}
     - name: IndexFinger4_L
       parentName: IndexFinger3_L
@@ -929,10 +930,3 @@ ModelImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 374820
-  packageName: Motorcycle Interaction Animset FREE
-  packageVersion: 1.0
-  assetPath: Assets/MotoInteractionAnimsFREE/Animations/Riding/Turn_V1/AS_Turn_V1_Right_Loop.fbx
-  uploadId: 902864

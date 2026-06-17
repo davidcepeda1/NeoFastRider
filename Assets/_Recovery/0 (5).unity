@@ -6670,7 +6670,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NeoFastRider.Moto.LaneController
   _lateralSpeed: 8
-  _maxOffset: 20
+  _maxOffset: 3.5
 --- !u!4 &1301094802
 Transform:
   m_ObjectHideFlags: 0
@@ -6707,10 +6707,13 @@ MonoBehaviour:
   _decelRate: 10
   _rayDistance: 20
   _rayOriginY: 10
-  _alignSpeed: 12
+  _alignSpeed: 10
   _wheelFront: {fileID: 0}
   _wheelRear: {fileID: 0}
   _runnerAnimator: {fileID: 816528762}
+  _probeDist: 8
+  _probeEdge: 1
+  _turnSpeed: 6
   _steerForce: 15
 --- !u!65 &1301094804
 BoxCollider:

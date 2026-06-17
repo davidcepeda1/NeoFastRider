@@ -16,7 +16,7 @@ namespace NeoFastRider.Moto
         [SerializeField] private float _lateralSpeed = 8f;
 
         [Tooltip("Limite maximo de offset lateral (medio ancho del camino).")]
-        [SerializeField] private float _maxOffset = 3.5f;
+        [SerializeField] private float _maxOffset = 20f;
 
         private float _currentOffsetX = 0f;
         private bool  _isMovingLateral = false;

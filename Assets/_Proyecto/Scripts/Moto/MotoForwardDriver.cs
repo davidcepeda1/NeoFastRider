@@ -125,22 +125,13 @@ namespace NeoFastRider.Moto
         }
 
         // ── Raycast detecta la superficie real del asfalto ────────────────────
-        [Header("Deteccion de curvas")]
-        [Tooltip("Distancia de sondeo adelante para detectar curvas.")]
-        [SerializeField] private float _probeDist = 8f;
-        [Tooltip("Offset lateral de los sondeos (ligeramente mas que medio ancho del camino).")]
-        [SerializeField] private float _probeEdge = 5f;
-        [Tooltip("Velocidad de giro al detectar curva.")]
-        [SerializeField] private float _turnSpeed = 6f;
-
         private void DetectSurface()
         {
             float totalRay = _rayDistance + _rayOriginY;
-            Vector3 upOff  = Vector3.up * _rayOriginY;
+            Vector3 origin = transform.position + Vector3.up * _rayOriginY;
 
-            // ── RAY CENTRAL: detectar suelo bajo la moto ──────────────────────
             RaycastHit hitBelow;
-            if (!RaycastRoad(transform.position + upOff, Vector3.down, totalRay, out hitBelow))
+            if (!RaycastRoad(origin, Vector3.down, totalRay, out hitBelow))
             {
                 _grounded = false;
                 return;
@@ -148,97 +139,122 @@ namespace NeoFastRider.Moto
             _surfaceNormal = hitBelow.normal;
             _grounded      = true;
 
-            // ── SONDEOS LATERALES: detectar bordes del camino adelante ─────────
-            // right = perpendicular al forward en el plano del asfalto
-            Vector3 right = Vector3.Cross(_surfaceNormal, _surfaceForward).normalized;
-
-            // Punto de sondeo adelante + offset izquierdo y derecho
-            Vector3 ahead = transform.position + _surfaceForward * _probeDist;
-            Vector3 probeL = ahead - right * _probeEdge + upOff; // lado izquierdo del camino
-            Vector3 probeR = ahead + right * _probeEdge + upOff; // lado derecho del camino
-
-            RaycastHit hitL, hitR;
-            bool hasL = RaycastRoad(probeL, Vector3.down, totalRay, out hitL);
-            bool hasR = RaycastRoad(probeR, Vector3.down, totalRay, out hitR);
+            // ── Determinar dirección del camino según el tipo de pieza ────────
+            Transform piece = hitBelow.collider.transform;
+            bool isCurve    = piece.gameObject.name.ToLower().Contains("curve");
 
             Vector3 targetDir = _surfaceForward;
 
-            if (hasL && hasR)
+            if (isCurve)
             {
-                // Ambos lados tienen camino: calcular centro y dirigir ahí
-                Vector3 center = (hitL.point + hitR.point) * 0.5f;
-                Vector3 toCenter = (center - hitBelow.point);
-                Vector3 proj = Vector3.ProjectOnPlane(toCenter, _surfaceNormal);
-                if (proj.sqrMagnitude > 0.1f)
-                    targetDir = proj.normalized;
-            }
-            else if (hasL && !hasR)
-            {
-                // Camino solo a la izquierda: curva a la izquierda
-                Vector3 toLeft = (hitL.point - hitBelow.point);
-                Vector3 proj = Vector3.ProjectOnPlane(toLeft, _surfaceNormal);
-                if (proj.sqrMagnitude > 0.1f)
-                    targetDir = proj.normalized;
-            }
-            else if (!hasL && hasR)
-            {
-                // Camino solo a la derecha: curva a la derecha
-                Vector3 toRight = (hitR.point - hitBelow.point);
-                Vector3 proj = Vector3.ProjectOnPlane(toRight, _surfaceNormal);
-                if (proj.sqrMagnitude > 0.1f)
-                    targetDir = proj.normalized;
-            }
-            // Si ninguno golpea: mantener dirección actual
+                // ═══ PIEZA CURVA: tangente al arco ═══════════════════════════
+                // El pivot de la pieza (piece.position) ES el centro del arco.
+                // La tangente en cualquier punto = perpendicular al radio.
+                // Solo 2 candidatos (tangente y su negativo), no 8.
+                // Esto elimina el flip de dirección a mitad de curva.
+                Vector3 arcCenter = new Vector3(piece.position.x, 0f, piece.position.z);
+                Vector3 hp        = new Vector3(hitBelow.point.x, 0f, hitBelow.point.z);
+                Vector3 radial    = hp - arcCenter;
 
+                if (radial.magnitude > 1f)
+                {
+                    Vector3 t1 = Vector3.Cross(radial.normalized, Vector3.up);
+                    Vector3 t2 = -t1;
+
+                    // Elegir la tangente que va en la misma dirección general que la moto
+                    targetDir = Vector3.Dot(t1, _surfaceForward) > Vector3.Dot(t2, _surfaceForward)
+                        ? t1.normalized : t2.normalized;
+                }
+            }
+            else
+            {
+                // ═══ PIEZA RECTA / RAMPA: usar eje de la pieza ═══════════════
+                Vector3 pFwd   = Vector3.ProjectOnPlane(piece.forward, _surfaceNormal);
+                Vector3 pRight = Vector3.ProjectOnPlane(piece.right,   _surfaceNormal);
+
+                if (pFwd.sqrMagnitude   < 0.001f) pFwd   = piece.forward;
+                if (pRight.sqrMagnitude < 0.001f) pRight = piece.right;
+
+                pFwd   = pFwd.normalized;
+                pRight = pRight.normalized;
+
+                float dotF = Mathf.Abs(Vector3.Dot(_surfaceForward, pFwd));
+                float dotR = Mathf.Abs(Vector3.Dot(_surfaceForward, pRight));
+
+                if (dotF >= dotR)
+                    targetDir = Vector3.Dot(_surfaceForward, pFwd) > 0 ? pFwd : -pFwd;
+                else
+                    targetDir = Vector3.Dot(_surfaceForward, pRight) > 0 ? pRight : -pRight;
+            }
+
+            // Suavizar transición
             _surfaceForward = Vector3.Slerp(
-                _surfaceForward, targetDir, _turnSpeed * Time.fixedDeltaTime);
-
-            if (_surfaceForward.sqrMagnitude < 0.001f)
-                _surfaceForward = targetDir;
+                _surfaceForward, targetDir, _alignSpeed * Time.fixedDeltaTime);
             _surfaceForward = _surfaceForward.normalized;
         }
 
         // ── Empuje constante hacia adelante ───────────────────────────────────
+        [Header("Fuerza de correccion")]
+        [Tooltip("Fuerza de la corrección de dirección. Mayor = más responsivo.")]
+        [SerializeField] private float _steerForce = 15f;
+
         private void MoveForward()
         {
             if (!_grounded) return;
 
             float speedMS = _currentKmh / 3.6f;
-            Vector3 desiredVel = _surfaceForward * speedMS;
 
-            // Mantener componente Y de la velocidad (gravedad)
-            // Reemplazar solo las componentes en la direccion del forward
+            // Velocidad horizontal deseada según la dirección del camino
+            Vector3 targetH = new Vector3(
+                _surfaceForward.x * speedMS, 0f,
+                _surfaceForward.z * speedMS);
+
+            // Velocidad horizontal actual (preserva Y de gravedad)
             Vector3 vel = _rb.linearVelocity;
+            Vector3 currentH = new Vector3(vel.x, 0f, vel.z);
 
-            // Remover componente forward actual
-            float currentFwdSpeed = Vector3.Dot(vel, _surfaceForward);
-            vel -= _surfaceForward * currentFwdSpeed;
+            // FUERZA correctiva — no sobreescribe la velocidad, la GUÍA
+            // La física sigue resolviendo colisiones y deslizamientos en curvas
+            Vector3 correction = (targetH - currentH) * _steerForce;
+            _rb.AddForce(correction, ForceMode.Acceleration);
 
-            // Agregar velocidad forward deseada
-            vel += _surfaceForward * speedMS;
+            // Rampas: fuerza vertical suave para subir/bajar
+            if (Mathf.Abs(_surfaceForward.y) > 0.05f)
+            {
+                float targetY = _surfaceForward.y * speedMS;
+                float yError  = (targetY - vel.y) * 5f;
+                _rb.AddForce(Vector3.up * yError, ForceMode.Acceleration);
+            }
 
-            _rb.linearVelocity = vel;
+            // Limitar velocidad máxima (sin setear velocity, solo clampar)
+            float maxSpeed = speedMS * 1.3f;
+            if (currentH.magnitude > maxSpeed)
+            {
+                Vector3 clamped = currentH.normalized * maxSpeed;
+                _rb.linearVelocity = new Vector3(clamped.x, vel.y, clamped.z);
+            }
         }
 
         // ── Cambio de carril: convierte el cambio de offset en velocidad lateral
         private void ApplyLaneOffset()
         {
-            if (!_grounded) return;
-
-            // Right = perpendicular al forward en el plano del asfalto
+            // Siempre activo — sin guard de _grounded
             Vector3 right = Vector3.Cross(_surfaceNormal, _surfaceForward).normalized;
+            if (right.sqrMagnitude < 0.001f) return;
 
-            // LaneController ya interpola suavemente el offsetX
-            // Convertimos el CAMBIO de offset en velocidad lateral
+            // Velocidad lateral deseada basada en el cambio de offset
             float laneX = _lane.CurrentOffsetX;
-            float lateralSpeed = (laneX - _prevLaneX) / Time.fixedDeltaTime;
+            float desiredLateralSpeed = (laneX - _prevLaneX) / Time.fixedDeltaTime;
             _prevLaneX = laneX;
 
-            // Reemplazar componente lateral de la velocidad
-            Vector3 vel = _rb.linearVelocity;
-            vel -= right * Vector3.Dot(vel, right);  // quitar lateral actual
-            vel += right * lateralSpeed;              // poner lateral deseada
-            _rb.linearVelocity = vel;
+            // Velocidad lateral actual
+            float currentLateral = Vector3.Dot(_rb.linearVelocity, right);
+
+            // FUERZA correctiva lateral — no sobreescribe la velocidad
+            float error = desiredLateralSpeed - currentLateral;
+            _rb.AddForce(right * error * _steerForce, ForceMode.Acceleration);
+
+            // Sin amortiguamiento: la moto se queda donde el jugador la deja
         }
 
         // ── Rotacion visual: alinea la moto con la superficie ─────────────────

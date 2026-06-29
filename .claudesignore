@@ -1,0 +1,50 @@
+# Cache y archivos temporales de Unity (¡Los mayores devoradores de tokens!)
+/[Ll]ibrary/
+/[ there]/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Cc]ache/
+/[Ll]ogs/
+/[MemoryCaptures]/
+/[VeeDee]/
+/UserSettings/
+
+# Archivos de soluciones de código (Claude no los necesita, solo los scripts)
+*.sln
+*.csproj
+*.unityproj
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svclog
+*.saved
+
+# Archivos de crash y reportes
+/CrashReportLines*
+
+# Assets binarios pesados (Modelos 3D, Audio, Texturas)
+# Esto evita que Claude intente "leer" el código binario de tus modelos o música
+*.fbx
+*.obj
+*.max
+*.blend
+*.png
+*.jpg
+*.jpeg
+*.tga
+*.psd
+*.wav
+*.mp3
+*.ogg
+*.asset
+*.mat
+*.prefab
+*.unity
+
+# Ignorar los metadatos de Unity (¡Súper importante!)
+# Unity genera un archivo .meta por cada archivo. Claude NO los necesita.
+*.meta

@@ -49,7 +49,9 @@ namespace NeoFastRider.Moto
         private bool           _grounded;
         private float          _prevLaneX;
 
-        public float CurrentKmh => _currentKmh;
+        public float CurrentKmh    => _currentKmh;
+        public float BaseSpeedKmh  => _baseSpeedKmh;
+        public float BoostSpeedKmh => _boostSpeedKmh;
 
         private void Awake()
         {

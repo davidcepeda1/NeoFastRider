@@ -1,14 +1,14 @@
 ﻿<Solution>
-  <Project Path="LeanCommon.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="LeanCommon.csproj" />
   <Project Path="LeanTransition.csproj" />
   <Project Path="Nova.Editor.csproj" />
   <Project Path="Nova.csproj" />
   <Project Path="Nova.UIControls.csproj" />
   <Project Path="LeanGUI.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="DOTween.Modules.csproj" />
   <Project Path="CW.Common.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Nova.Compat.csproj" />
   <Project Path="Scifi_UI_Icons.csproj" />
   <Project Path="Nova.UIControls.Editor.csproj" />

@@ -14,7 +14,7 @@ namespace NeoFastRider.Moto
         [SerializeField] private float _drainDuration = 2.5f;
 
         [Header("Canon — Geometría")]
-        [SerializeField]gi private Transform _muzzlePoint;
+        [SerializeField] private Transform _muzzlePoint;
         [SerializeField] private float _starRadius     = 0.75f; // radio de la estrella
         [SerializeField] private float _rotationSpeed  = 500f;  // grados/s
 

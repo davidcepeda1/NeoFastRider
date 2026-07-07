@@ -6,34 +6,24 @@ using UnityEngine;
 #if NOESIS
 using Noesis;
 #else
-// Stubs para compilar sin NoesisGUI instalado — se eliminan una vez importado el paquete
 using Point      = UnityEngine.Vector2;
 using Visibility = System.Object;
 #endif
 
 namespace NeoFastRider.UI
 {
-    // ═══════════════════════════════════════════════════════════════════════
-    //  HelmetVisorViewModel
-    //  Fuente de datos WPF del Visor del Casco.
-    //  Todos los campos son hilo-seguro desde Unity (main thread).
-    // ═══════════════════════════════════════════════════════════════════════
     public sealed class HelmetVisorViewModel : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
-        // ── Constantes del arco tacómetro ───────────────────────────────
-        // Centro (55,55) radio 48 · inicio 150° · barrido CW 240°
         private const double ArcCx         = 55.0;
         private const double ArcCy         = 55.0;
         private const double ArcRadius     = 48.0;
         private const double ArcStartDeg   = 150.0;
         private const double ArcSweepDeg   = 240.0;
-        private const double ArcLargeThreshold = 0.75; // t > 0.75 → IsLargeArc
+        private const double ArcLargeThreshold = 0.75;
 
-        // ────────────────────────────────────────────────────────────────
-        //  VELOCIDAD
-        // ────────────────────────────────────────────────────────────────
+        // ── VELOCIDAD ───────────────────────────────────────────────────
         private float _speedKmh;
         public float SpeedKmh
         {
@@ -47,13 +37,10 @@ namespace NeoFastRider.UI
             }
         }
 
-        // Tres dígitos sin decimales para el TextBlock del velocímetro
         public string SpeedFormatted =>
             Mathf.Clamp(Mathf.RoundToInt(_speedKmh), 0, 999).ToString("000");
 
-        // ────────────────────────────────────────────────────────────────
-        //  RPM NORMALIZADO [0..1] + geometría del arco
-        // ────────────────────────────────────────────────────────────────
+        // ── RPM NORMALIZADO [0..1] ───────────────────────────────────────────
         private double _rpmNormalized;
         public double RPMNormalized
         {
@@ -68,9 +55,7 @@ namespace NeoFastRider.UI
             }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        //  TIEMPO RESTANTE
-        // ────────────────────────────────────────────────────────────────
+        // ── TIEMPO RESTANTE ────────────────────────────────────────────
         private float _timeRemaining;
         public float TimeRemaining
         {
@@ -84,7 +69,6 @@ namespace NeoFastRider.UI
             }
         }
 
-        // Formato MM:SS
         public string TimeFormatted
         {
             get
@@ -94,9 +78,7 @@ namespace NeoFastRider.UI
             }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        //  CORE ENERGY [0..1]
-        // ────────────────────────────────────────────────────────────────
+        // ── CORE ENERGY [0..1] ────────────────────────────────────────────
         private float _coreEnergy = 1f;
         public float CoreEnergy
         {
@@ -114,9 +96,28 @@ namespace NeoFastRider.UI
 
         public float CoreEnergyPercent => _coreEnergy * 100f;
 
-        // ────────────────────────────────────────────────────────────────
-        //  ESTADO CRÍTICO (energía < 25 %)
-        // ────────────────────────────────────────────────────────────────
+        // ── LASER ENERGY [0..1] ───────────────────────────────────────────
+        private float _laserEnergy;
+        public float LaserEnergy
+        {
+            get => _laserEnergy;
+            set
+            {
+                value = Mathf.Clamp01(value);
+                if (Mathf.Approximately(_laserEnergy, value)) return;
+                _laserEnergy = value;
+                Notify(nameof(LaserEnergy));
+                Notify(nameof(LaserEnergyPercent));
+                Notify(nameof(IsLaserActive));
+            }
+        }
+
+        public float LaserEnergyPercent => _laserEnergy * 100f;
+
+        // True mientras haya energía de láser — controla Visibility del widget en XAML
+        public bool IsLaserActive => _laserEnergy > 0.001f;
+
+        // ── ESTADO CRÍTICO ─────────────────────────────────────────────────
         private bool _isCritical;
         public bool IsCritical
         {
@@ -129,9 +130,7 @@ namespace NeoFastRider.UI
             }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        //  SHAKE OFFSET — animado por corrutina en HelmetVisorController
-        // ────────────────────────────────────────────────────────────────
+        // ── SHAKE OFFSET ──────────────────────────────────────────────────
         private double _shakeOffsetX;
         public double ShakeOffsetX
         {
@@ -146,40 +145,21 @@ namespace NeoFastRider.UI
             set { _shakeOffsetY = value; Notify(nameof(ShakeOffsetY)); }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        //  Helpers internos
-        // ────────────────────────────────────────────────────────────────
         private void Notify(string prop) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
 
-        // Recalcula el endpoint del arco del tacómetro; invocado al cambiar RPM
         private void RecalcArc()
         {
-            // Ángulo final: avanzamos CW desde startDeg en función del RPM
             double endDeg = ArcStartDeg + ArcSweepDeg * _rpmNormalized;
             double endRad = endDeg * Math.PI / 180.0;
             double ex = ArcCx + ArcRadius * Math.Cos(endRad);
             double ey = ArcCy + ArcRadius * Math.Sin(endRad);
-
-            // Los converters en XAML usan RPMNormalized directamente.
-            // Este método se mantiene para posible uso desde code-behind.
-            _ = ex; _ = ey; // evita warning "unused" sin pragma
+            _ = ex; _ = ey;
         }
     }
 
-// ═══════════════════════════════════════════════════════════════════════
-//  CONVERTERS — solo se compilan cuando NoesisGUI está instalado.
-//  IValueConverter pertenece al ensamblado Noesis; sin él el tipo no existe.
-//  Una vez importado el paquete NoesisGUI, #if NOESIS se activa y estos
-//  tipos quedan disponibles para el XAML vía:
-//  xmlns:hud="clr-namespace:NeoFastRider.UI;assembly=Assembly-CSharp"
-// ═══════════════════════════════════════════════════════════════════════
 #if NOESIS
 
-    /// <summary>
-    /// double RPMNormalized [0..1] → Noesis.Point (endpoint del arco)
-    /// Centro (55,55) radio 48, barrido 240° CW desde 150°
-    /// </summary>
     public sealed class RPMToArcPointConverter : Noesis.IValueConverter
     {
         private const double Cx       = 55.0;
@@ -192,7 +172,6 @@ namespace NeoFastRider.UI
         {
             double t = System.Convert.ToDouble(value);
             t = Math.Max(0.001, Math.Min(1.0, t));
-
             double endDeg = StartDeg + SweepDeg * t;
             double endRad = endDeg * Math.PI / 180.0;
             double x = Cx + R * Math.Cos(endRad);
@@ -204,10 +183,6 @@ namespace NeoFastRider.UI
             => throw new NotImplementedException();
     }
 
-    /// <summary>
-    /// double RPMNormalized [0..1] → bool IsLargeArc
-    /// True cuando el arco supera los 180° (RPM > 75 %)
-    /// </summary>
     public sealed class RPMToIsLargeArcConverter : Noesis.IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -220,9 +195,6 @@ namespace NeoFastRider.UI
             => throw new NotImplementedException();
     }
 
-    /// <summary>
-    /// bool → Noesis.Visibility (True = Visible, False = Collapsed)
-    /// </summary>
     public sealed class BoolToVisibilityConverter : Noesis.IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -232,12 +204,6 @@ namespace NeoFastRider.UI
             => throw new NotImplementedException();
     }
 
-    /// <summary>
-    /// double RPMNormalized [0..1] → Noesis.StreamGeometry
-    /// Construye el arco del tacómetro usando StreamGeometryContext.ArcTo
-    /// porque PathGeometry/PathFigure/ArcSegment no existen en esta versión de Noesis.
-    /// Centro (55,55) radio 48 · inicio 150° CW · barrido 240°
-    /// </summary>
     public sealed class RPMToArcGeometryConverter : Noesis.IValueConverter
     {
         private const float   Cx       = 55f;
@@ -246,7 +212,6 @@ namespace NeoFastRider.UI
         private const double  StartDeg = 150.0;
         private const double  SweepDeg = 240.0;
 
-        // Punto de inicio fijo (calculado una sola vez)
         private static readonly Noesis.Point StartPt = new Noesis.Point(
             Cx + R * (float)Math.Cos(StartDeg * Math.PI / 180.0),
             Cy + R * (float)Math.Sin(StartDeg * Math.PI / 180.0)
@@ -256,7 +221,6 @@ namespace NeoFastRider.UI
         {
             double t = System.Convert.ToDouble(value);
             t = Math.Max(0.002, Math.Min(1.0, t));
-
             double endDeg = StartDeg + SweepDeg * t;
             double endRad = endDeg * Math.PI / 180.0;
             float  ex     = Cx + R * (float)Math.Cos(endRad);

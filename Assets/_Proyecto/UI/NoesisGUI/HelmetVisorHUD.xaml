@@ -44,7 +44,7 @@
         </Style>
 
         <!-- ════════════════════════════════
-             TEMPLATE: ProgressBar CoreEnergy
+             TEMPLATE: ProgressBar CoreEnergy (Cyan)
              Sin DrawingBrush — Border + gradient fill
              ════════════════════════════════ -->
         <ControlTemplate x:Key="EnergyBarTpl" TargetType="ProgressBar">
@@ -100,6 +100,33 @@
                             <GradientStop Color="#CC00FFFF" Offset="0.45"/>
                             <GradientStop Color="#6600FFFF" Offset="0.80"/>
                             <GradientStop Color="#2200FFFF" Offset="1.00"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+            </Grid>
+        </ControlTemplate>
+
+        <!-- ════════════════════════════════
+             TEMPLATE: ProgressBar LaserEnergy (Magenta)
+             ════════════════════════════════ -->
+        <ControlTemplate x:Key="LaserBarTpl" TargetType="ProgressBar">
+            <Grid Width="220" Height="16">
+                <Rectangle Fill="#0F001020" RadiusX="2" RadiusY="2"/>
+                <!-- Glow exterior magenta -->
+                <Border BorderBrush="{StaticResource MagentaGlowBrush}" BorderThickness="2" CornerRadius="3"/>
+                <!-- Borde interior preciso -->
+                <Border BorderBrush="{StaticResource MagentaBrush}" BorderThickness="1" CornerRadius="2"/>
+                <!-- Fill de energia con gradiente horizontal magenta -->
+                <Rectangle x:Name="PART_Indicator"
+                           HorizontalAlignment="Left"
+                           RadiusX="2" RadiusY="2"
+                           Margin="1">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#FFFF1493" Offset="0.00"/>
+                            <GradientStop Color="#CCFF1493" Offset="0.45"/>
+                            <GradientStop Color="#66FF1493" Offset="0.80"/>
+                            <GradientStop Color="#22FF1493" Offset="1.00"/>
                         </LinearGradientBrush>
                     </Rectangle.Fill>
                 </Rectangle>
@@ -224,10 +251,38 @@
         </Grid.ColumnDefinitions>
 
         <!-- ════════════════════════════════
-             WIDGET: CORE ENERGY (izquierda)
+             PANEL IZQUIERDO: Laser (arriba) + Core Energy (abajo)
              ════════════════════════════════ -->
         <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Bottom">
 
+            <!-- ── LASER ENERGY — solo visible cuando IsLaserActive ── -->
+            <StackPanel Orientation="Vertical" Margin="0,0,0,10"
+                        Visibility="{Binding IsLaserActive, Converter={StaticResource BoolToVis}}">
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                    <!-- Icono rayo: doble path para fake glow -->
+                    <Path Width="10" Height="12" Stretch="Uniform" Margin="0,0,6,0"
+                          Data="M 7,0 L 2,6 L 5,6 L 1,12 L 9,4 L 6,4 Z"
+                          Fill="{StaticResource MagentaGlowBrush}" Opacity="0.8"/>
+                    <Path Width="10" Height="12" Stretch="Uniform" Margin="-16,0,6,0"
+                          Data="M 7,0 L 2,6 L 5,6 L 1,12 L 9,4 L 6,4 Z"
+                          Fill="{StaticResource MagentaBrush}"/>
+                    <TextBlock Text="LASER" Style="{StaticResource HudMicro}"
+                               Foreground="{StaticResource MagentaBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <ProgressBar Value="{Binding LaserEnergy}"
+                             Minimum="0" Maximum="1"
+                             Template="{StaticResource LaserBarTpl}"/>
+
+                <TextBlock Style="{StaticResource HudMicro}" Margin="0,4,0,0"
+                           Foreground="{StaticResource MagentaBrush}"
+                           Text="{Binding LaserEnergyPercent, StringFormat={}{0:0}%}"/>
+
+            </StackPanel>
+
+            <!-- ── CORE ENERGY — siempre visible ── -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                 <!-- Icono hexagonal: doble path para fake glow -->
                 <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,6,0"
@@ -240,7 +295,6 @@
                            VerticalAlignment="Center"/>
             </StackPanel>
 
-            <!-- Barra segmentada enlazada a CoreEnergy [0..1] -->
             <ProgressBar Value="{Binding CoreEnergy}"
                          Minimum="0" Maximum="1"
                          Template="{StaticResource EnergyBarTpl}">
@@ -267,6 +321,7 @@
 
             <TextBlock Style="{StaticResource HudMicro}" Margin="0,4,0,0"
                        Text="{Binding CoreEnergyPercent, StringFormat={}{0:0}%}"/>
+
         </StackPanel>
 
         <!-- ════════════════════════════════

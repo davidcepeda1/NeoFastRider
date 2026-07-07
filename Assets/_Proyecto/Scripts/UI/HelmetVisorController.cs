@@ -7,12 +7,6 @@ using Noesis;
 
 namespace NeoFastRider.UI
 {
-    // Setup (Screen Space — sin RenderTexture):
-    //   1. Crea GO vacío hijo de [Scene_Setup], ej: "HUD_VisorOverlay"
-    //   2. Add Component → Camera  (depth: 1, Clear Flags: Don't Clear, Culling Mask: Nothing)
-    //   3. Add Component → NoesisView  (Xaml: HelmetVisorHUD, Texture: None)
-    //   4. Add Component → HelmetVisorController  (asigna MotoForwardDriver)
-    //   NoesisView renderiza vía OnPostRender de la overlay Camera — sin mallas ni RT.
     [AddComponentMenu("NeoFastRider/UI/Helmet Visor Controller")]
     public sealed class HelmetVisorController : MonoBehaviour
     {
@@ -51,13 +45,12 @@ namespace NeoFastRider.UI
             _targetCoreEnergy  = _initialCoreEnergy;
             _vm.CoreEnergy     = _initialCoreEnergy;
             _vm.TimeRemaining  = _levelDuration;
+            _vm.LaserEnergy    = 0f;
         }
 
         private void Start()
         {
 #if NOESIS
-            // NoesisView.Awake() carga el XAML; Start() garantiza que Content ya existe.
-            // Solo inyectamos el DataContext — NoesisView gestiona el render internamente.
             var noesisView = GetComponent<NoesisView>();
             if (noesisView != null && noesisView.Content != null)
             {
@@ -105,6 +98,7 @@ namespace NeoFastRider.UI
             _vm.CoreEnergy = _currentCoreEnergy;
         }
 
+        // ── Core Energy API ─────────────────────────────────────────────────────
         public void SetCoreEnergy(float value)
         {
             _currentCoreEnergy = Mathf.Clamp01(value);
@@ -121,6 +115,25 @@ namespace NeoFastRider.UI
             TriggerShake();
         }
 
+        // ── Laser Energy API ──────────────────────────────────────────────────
+        public float GetLaserEnergy() => _vm?.LaserEnergy ?? 0f;
+
+        public void SetLaserEnergy(float value)
+        {
+            if (_vm != null) _vm.LaserEnergy = Mathf.Clamp01(value);
+        }
+
+        public void AddLaserEnergy(float amount)
+        {
+            if (_vm != null) _vm.LaserEnergy = Mathf.Clamp01(_vm.LaserEnergy + amount);
+        }
+
+        public void ConsumeLaserEnergy(float amount)
+        {
+            if (_vm != null) _vm.LaserEnergy = Mathf.Clamp01(_vm.LaserEnergy - amount);
+        }
+
+        // ── Shake ───────────────────────────────────────────────────────────
         public void TriggerShake()
         {
             if (_shaking) StopCoroutine(nameof(ShakeCoroutine));
@@ -153,6 +166,7 @@ namespace NeoFastRider.UI
             _rpmSmoothed       = 0f;
             _vm.TimeRemaining  = _levelDuration;
             _vm.CoreEnergy     = _initialCoreEnergy;
+            _vm.LaserEnergy    = 0f;
             _vm.SpeedKmh       = 0f;
             _vm.RPMNormalized  = 0.0;
         }

@@ -8229,8 +8229,9 @@ MonoBehaviour:
   _hudControllers: []
   _drainDuration: 2.5
   _muzzlePoint: {fileID: 0}
-  _starRadius: 1
-  _rotationSpeed: 500
+  _laserLength: 30
+  _coneBaseRadius: 1.5
+  _expandSpeed: 600
 --- !u!4 &1325253480 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: af250c3d17f7cadcbaeb7915cdf04465, type: 3}

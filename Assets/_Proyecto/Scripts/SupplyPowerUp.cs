@@ -61,6 +61,11 @@ public class SupplyPowerUp : MonoBehaviour
     {
         if (_collected || !other.CompareTag("Player")) return;
         _collected = true;
+
+        // Recargar la barra de láser al 100 % en el arma de la moto
+        var weapon = FindAnyObjectByType<NeoFastRider.Moto.PlayerPulseWeapon>();
+        weapon?.SetLaserEnergy(1f);
+
         StartCoroutine(CollectRoutine(other.transform));
     }
 

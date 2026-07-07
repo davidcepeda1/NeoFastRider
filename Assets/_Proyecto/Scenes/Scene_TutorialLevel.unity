@@ -119,6 +119,11 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &37790197 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: d07f3101e090db14eba88a954005f5db, type: 3}
+  m_PrefabInstance: {fileID: 1476916021}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &41640409 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 110814, guid: ea8ec36c7f9b40f4faa40bf80afec5a3, type: 3}
@@ -2450,6 +2455,28 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: d07f3101e090db14eba88a954005f5db, type: 3}
   m_PrefabInstance: {fileID: 1476916021}
   m_PrefabAsset: {fileID: 0}
+--- !u!64 &332961380
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 37790197}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 6005791566445069315, guid: d07f3101e090db14eba88a954005f5db, type: 3}
 --- !u!1 &333341909
 GameObject:
   m_ObjectHideFlags: 0
@@ -8231,6 +8258,8 @@ MonoBehaviour:
   _muzzlePoint: {fileID: 0}
   _starRadius: 1
   _rotationSpeed: 500
+  _laserLength: 30
+  _impactMaterial: {fileID: 2100000, guid: acd51d388e03b43ee91f50f360703603, type: 2}
 --- !u!4 &1325253480 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: af250c3d17f7cadcbaeb7915cdf04465, type: 3}
@@ -9538,7 +9567,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d07f3101e090db14eba88a954005f5db, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 332961380}
   m_SourcePrefab: {fileID: 100100000, guid: d07f3101e090db14eba88a954005f5db, type: 3}
 --- !u!1 &1483129143 stripped
 GameObject:

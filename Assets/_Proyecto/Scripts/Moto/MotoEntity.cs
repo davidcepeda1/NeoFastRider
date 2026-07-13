@@ -73,6 +73,16 @@ namespace NeoFastRider.Moto
         public bool TryConsumeSacrificialBoost() => TryConsumeEnergy(CostSacrificialBoost);
 
         /// <summary>
+        /// Drains energy due to external damage (e.g. a drone ram). Clamps to zero.
+        /// </summary>
+        public void DrainEnergyFromDamage(float amount)
+        {
+            if (_isDead || amount <= 0f) return;
+            _currentEnergy = Mathf.Max(_currentEnergy - amount, 0f);
+            Debug.Log($"[DataCore] Daño de dron: -{amount} | Energía restante: {_currentEnergy:F1}");
+        }
+
+        /// <summary>
         /// Absorbs a given energy amount from a supply box pickup, clamped to max.
         /// </summary>
         /// <param name="amount">Amount of energy to restore.</param>

@@ -67,7 +67,16 @@ namespace NeoFastRider.Moto
                 if (Physics.Raycast(_starRoot.position, transform.forward, out var hit, _laserLength))
                 {
                     if (IsObstacle(hit.collider.transform))
+                    {
                         TriggerImpact(hit.point, hit.collider.gameObject, hit.collider.bounds);
+                    }
+                    else
+                    {
+                        // Detectar drones por componente (no por tag ni jerarquía)
+                        var droneHealth = hit.collider.GetComponentInParent<NeoFastRider.Enemies.DroneHealth>();
+                        if (droneHealth != null)
+                            TriggerDroneHit(hit.point, droneHealth);
+                    }
                 }
             }
 
@@ -92,7 +101,36 @@ namespace NeoFastRider.Moto
             Debug.Log("[PlayerPulseWeapon] LaserEnergy = " + _laserEnergy, this);
         }
 
-        // ── Impacto ──────────────────────────────────────────────────────────
+        // ── Impacto en dron ───────────────────────────────────────────────────
+        private readonly HashSet<int> _hitDrones = new HashSet<int>();
+
+        private void TriggerDroneHit(Vector3 hitPoint, NeoFastRider.Enemies.DroneHealth drone)
+        {
+            int id = drone.gameObject.GetInstanceID();
+            if (_hitDrones.Contains(id)) return;
+
+            _hitDrones.Add(id);
+            drone.TakeDamage(1);
+
+            // VFX de impacto en el dron
+            _impactPS.transform.position = hitPoint;
+            _impactPS.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            _impactPS.Play();
+            _shockwavePS.transform.position = hitPoint;
+            _shockwavePS.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            _shockwavePS.Play();
+
+            // Permitir impactar al mismo dron de nuevo tras un breve cooldown
+            StartCoroutine(ClearDroneHitCooldown(id, 0.4f));
+        }
+
+        private IEnumerator ClearDroneHitCooldown(int id, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            _hitDrones.Remove(id);
+        }
+
+        // ── Impacto en obstáculos ─────────────────────────────────────────
         private static bool IsObstacle(Transform t)
         {
             return t.parent != null && t.parent.name == "Obstacles";

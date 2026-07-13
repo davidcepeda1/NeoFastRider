@@ -4830,7 +4830,7 @@ Transform:
   m_GameObject: {fileID: 596377133}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 26.71, y: 4.1850004, z: -55.135}
+  m_LocalPosition: {x: -115.36, y: 6.51, z: 37.365}
   m_LocalScale: {x: 1, y: 1, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -4916,9 +4916,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NeoFastRider.Enemies.DroneHealth
   maxHealth: 3
-  barHeightOffset: 2.4
-  barWidth: 2
-  barHeight: 0.28
 --- !u!1 &604528160
 GameObject:
   m_ObjectHideFlags: 0
@@ -5809,9 +5806,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NeoFastRider.Enemies.DroneHealth
   maxHealth: 3
-  barHeightOffset: 2.4
-  barWidth: 2
-  barHeight: 0.28
 --- !u!1 &690614960
 GameObject:
   m_ObjectHideFlags: 0

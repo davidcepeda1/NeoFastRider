@@ -34,6 +34,9 @@ namespace NeoFastRider.Moto
 
         private readonly HashSet<int> _destroyingObstacles = new HashSet<int>();
 
+        // Buffer pre-allocado para RaycastNonAlloc — evita GC por frame
+        private readonly RaycastHit[] _rayBuffer = new RaycastHit[16];
+
         public float LaserEnergy => _laserEnergy;
 
         // ────────────────────────────────────────────────────────────────────
@@ -64,20 +67,82 @@ namespace NeoFastRider.Moto
                 SyncToHUD();
                 _starRoot.Rotate(0f, 0f, _rotationSpeed * Time.deltaTime, Space.Self);
 
-                if (Physics.Raycast(_starRoot.position, transform.forward, out var hit, _laserLength))
+                // ── Pase 1: RaycastNonAlloc en transform.forward ─────────────────
+                // Recoge TODOS los hits para ignorar los BoxCollider triggers de las zonas
+                // de tutorial (TutorialCheckpointZone, TutorialZoneTrigger) que con
+                // queriesHitTriggers=true bloquearían un Physics.Raycast de primer impacto.
+                int hitCount = Physics.RaycastNonAlloc(
+                    _starRoot.position, transform.forward, _rayBuffer, _laserLength);
+
+                RaycastHit bestObstacle = default;
+                NeoFastRider.Enemies.DroneHealth bestDroneHealth = null;
+                float   bestDroneDist  = float.MaxValue;
+                Vector3 bestDronePoint = Vector3.zero;
+                bool foundObstacle = false;
+                bool foundDrone    = false;
+
+                for (int i = 0; i < hitCount; i++)
                 {
-                    if (IsObstacle(hit.collider.transform))
+                    var h = _rayBuffer[i];
+                    if (IsObstacle(h.collider.transform))
                     {
-                        TriggerImpact(hit.point, hit.collider.gameObject, hit.collider.bounds);
+                        if (!foundObstacle || h.distance < bestObstacle.distance)
+                        { bestObstacle = h; foundObstacle = true; }
                     }
                     else
                     {
-                        // Detectar drones por componente (no por tag ni jerarquía)
-                        var droneHealth = hit.collider.GetComponentInParent<NeoFastRider.Enemies.DroneHealth>();
-                        if (droneHealth != null)
-                            TriggerDroneHit(hit.point, droneHealth);
+                        var dh = h.collider.GetComponentInParent<NeoFastRider.Enemies.DroneHealth>();
+                        if (dh != null && h.distance < bestDroneDist)
+                        { bestDroneDist = h.distance; bestDronePoint = h.point; bestDroneHealth = dh; foundDrone = true; }
                     }
                 }
+
+                // ── Pase 2: cono de 60° para drones fuera del rayo directo ───────
+                // Los drones en patrulla/persecución están hasta 5 m por encima del
+                // jugador; el rayo horizontal los pasa por debajo completamente.
+                // Este fallback detecta cualquier dron dentro del rango que esté
+                // en el semiplano frontal (cos ≥ 0.5 → ±60°), sin GC por frame.
+                if (!foundDrone)
+                {
+                    float bestDot  = 0.5f; // cos(60°) — umbral de "en frente"
+                    NeoFastRider.Enemies.DroneAIController bestAI = null;
+                    float coneDist = float.MaxValue;
+
+                    var allDrones = NeoFastRider.Enemies.DroneAIController.AllDrones;
+                    for (int i = 0; i < allDrones.Count; i++)
+                    {
+                        var ai = allDrones[i];
+                        if (ai == null) continue;
+
+                        Vector3 toDrone = ai.transform.position - _starRoot.position;
+                        float dist = toDrone.magnitude;
+                        if (dist > _laserLength) continue;
+
+                        float dot = Vector3.Dot(transform.forward, toDrone.normalized);
+                        if (dot > bestDot) { bestDot = dot; bestAI = ai; coneDist = dist; }
+                    }
+
+                    if (bestAI != null)
+                    {
+                        var dh = bestAI.GetComponent<NeoFastRider.Enemies.DroneHealth>();
+                        if (dh != null)
+                        {
+                            foundDrone     = true;
+                            bestDroneHealth = dh;
+                            bestDroneDist  = coneDist;
+                            bestDronePoint = bestAI.transform.position;
+                        }
+                    }
+                }
+
+                // ── Procesar el hit más cercano relevante ─────────────────────────
+                bool obstacleWins = foundObstacle &&
+                    (!foundDrone || bestObstacle.distance <= bestDroneDist);
+                if (obstacleWins)
+                    TriggerImpact(bestObstacle.point, bestObstacle.collider.gameObject,
+                                  bestObstacle.collider.bounds);
+                else if (foundDrone)
+                    TriggerDroneHit(bestDronePoint, bestDroneHealth);
             }
 
             _starMR.enabled = firing;

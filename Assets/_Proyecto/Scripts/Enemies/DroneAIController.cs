@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NeoFastRider.Enemies
@@ -40,6 +41,13 @@ namespace NeoFastRider.Enemies
         [Tooltip("Distancia mínima al jugador en Z para iniciar la embestida.")]
         [SerializeField] private float chargeMinDistZ  = 12f;
 
+        // ── Inspector: Separación entre drones ───────────────────────────────
+        [Header("Separación")]
+        [Tooltip("Distancia mínima que cada dron intenta mantener respecto a los demás.")]
+        [SerializeField] private float separationRadius = 4.0f;
+        [Tooltip("Velocidad de empuje horizontal cuando dos drones se acercan demasiado.")]
+        [SerializeField] private float separationSpeed  = 7.0f;
+
         // ── Inspector: Vuelo procedural ───────────────────────────────────────
         [Header("Levitación")]
         [SerializeField] private float levitationAmplitude = 0.14f;
@@ -51,24 +59,31 @@ namespace NeoFastRider.Enemies
 
         // ── Propiedades públicas (leídas por DroneCollisionHandler) ───────────
         public bool IsCharging      => _state == DroneState.Charging;
-        /// <summary>
-        /// Permanece true desde que empieza la embestida hasta que el handler
-        /// confirma el daño o la embestida termina. Resistente al timing Update/FixedUpdate.
-        /// </summary>
         public bool CanDamagePlayer { get; private set; }
+
+        // ── Lista estática compartida: todos los drones activos en escena ─────
+        private static readonly List<DroneAIController> _allDrones = new List<DroneAIController>();
+
+        /// <summary>Lista de todos los drones activos. Leída por PlayerPulseWeapon para el cono de impacto.</summary>
+        public static IReadOnlyList<DroneAIController> AllDrones => _allDrones;
 
         // ── Runtime ───────────────────────────────────────────────────────────
         private DroneState _state           = DroneState.Patrolling;
         private float      _patrolDirection = 1f;
         private float      _baseY;
-        private float      _logicalY;          // Y sin efecto seno; levitación se aplica encima
+        private float      _logicalY;
         private float      _lateralVelocity;
 
-        private float   _chargeTimer;
-        private float   _windUpTimer;
-        private float   _chargeTime;
-        private Vector3 _chargeTarget;
+        private float       _chargeTimer;
+        private float       _windUpTimer;
+        private float       _chargeTime;
+        private Vector3     _chargeTarget;
+        private float       _chargeTargetX; // X comprometido al INICIO del wind-up, no al lanzamiento
         private BoxCollider _boxCol;
+
+        // Umbrales de impacto separados por eje: el jugador esquiva moviéndose >1m en X
+        private const float ChargeHitX = 1.0f; // m — basta con 1m lateral para esquivar
+        private const float ChargeHitZ = 2.0f; // m — ventana de contacto en profundidad
 
         // ─────────────────────────────────────────────────────────────────────
         private void Awake()
@@ -85,12 +100,21 @@ namespace NeoFastRider.Enemies
             }
         }
 
+        private void OnEnable()
+        {
+            if (!_allDrones.Contains(this)) _allDrones.Add(this);
+        }
+
+        private void OnDisable() => _allDrones.Remove(this);
+        private void OnDestroy() => _allDrones.Remove(this);
+
         private void Update()
         {
             float prevX = transform.position.x;
 
             EvaluarEstado();
             EjecutarEstado();
+            AplicarSeparacion();
 
             _lateralVelocity = (transform.position.x - prevX) / Mathf.Max(Time.deltaTime, 0.0001f);
 
@@ -135,12 +159,11 @@ namespace NeoFastRider.Enemies
         // ── Patrullaje ────────────────────────────────────────────────────────
         private void EjecutarPatrullaje()
         {
-            _logicalY = _baseY;   // patrol mantiene altura base; levitación se añade encima
+            _logicalY = _baseY;
             Vector3 pos = transform.position;
             pos.x += _patrolDirection * patrolSpeed * Time.deltaTime;
             if (pos.x >= maxX)      { pos.x = maxX; _patrolDirection = -1f; }
             else if (pos.x <= minX) { pos.x = minX; _patrolDirection =  1f; }
-            // Y se aplica en AplicarLevitacion
             transform.position = pos;
         }
 
@@ -155,7 +178,6 @@ namespace NeoFastRider.Enemies
             pos.z = Mathf.MoveTowards(pos.z, target.z + leadDistance, chaseSpeedZ * Time.deltaTime);
             pos.x = Mathf.MoveTowards(pos.x, Mathf.Clamp(target.x, minX, maxX), chaseSpeedX * Time.deltaTime);
 
-            // Mínimo: no bajar más de 2m por debajo de la altura de spawn (evita traspasar el suelo)
             float targetY = Mathf.Max(target.y + hoverAbovePlayer, _baseY - 2f);
             _logicalY     = Mathf.MoveTowards(_logicalY, targetY, chaseSpeedY * Time.deltaTime);
             pos.y         = _logicalY;
@@ -168,11 +190,15 @@ namespace NeoFastRider.Enemies
         {
             _state       = DroneState.WindUp;
             _windUpTimer = windUpDuration;
+            // Comprometer la X del objetivo AHORA — el jugador tiene windUpDuration para
+            // moverse lateralmente y salir de esta franja; si se mueve, la trayectoria
+            // del dron ya no lo perseguirá en X.
+            if (playerTransform != null)
+                _chargeTargetX = playerTransform.position.x;
         }
 
         private void EjecutarWindUp()
         {
-            // Vibración visual pequeña para señalizar el ataque
             float shake = Mathf.Sin(Time.time * 40f) * 0.06f;
             transform.localPosition += new Vector3(shake, 0f, 0f);
 
@@ -185,7 +211,13 @@ namespace NeoFastRider.Enemies
         {
             if (playerTransform == null) { _state = DroneState.Chasing; return; }
 
-            _chargeTarget   = playerTransform.position;
+            // X viene de IniciarWindUp (comprometida al inicio del wind-up).
+            // Z e Y son la posición actual del jugador para que el dron lo alcance en profundidad.
+            _chargeTarget = new Vector3(
+                _chargeTargetX,
+                playerTransform.position.y,
+                playerTransform.position.z
+            );
             _chargeTime     = 0f;
             CanDamagePlayer = true;
             _state          = DroneState.Charging;
@@ -200,9 +232,16 @@ namespace NeoFastRider.Enemies
             transform.position = Vector3.MoveTowards(
                 transform.position, _chargeTarget, chargeSpeed * Time.deltaTime);
 
-            // Detección de impacto por OverlapBox cada frame (no depende de triggers)
-            if (CanDamagePlayer)
-                ComprobarImpactoJugador();
+            // Check de impacto con ejes separados:
+            //   X — si el jugador se movió >1m lateralmente durante el wind-up, escapa.
+            //   Z — ventana de contacto en profundidad; se satisface al cruzar la posición del jugador.
+            // Así esquivar = presionar izquierda/derecha ≥1m durante la telegrafía (0.6s).
+            if (CanDamagePlayer && playerTransform != null)
+            {
+                Vector3 delta = playerTransform.position - transform.position;
+                if (Mathf.Abs(delta.x) < ChargeHitX && Mathf.Abs(delta.z) < ChargeHitZ)
+                    GetComponent<DroneCollisionHandler>()?.ApplyChargeDamage(null);
+            }
 
             bool reachedTarget = Vector3.Distance(transform.position, _chargeTarget) < 0.5f;
             bool timeExpired   = _chargeTime >= chargeDuration;
@@ -215,32 +254,40 @@ namespace NeoFastRider.Enemies
             }
         }
 
-        private void ComprobarImpactoJugador()
-        {
-            if (_boxCol == null) return;
-
-            // TransformPoint aplica rotación+escala → centro correcto aunque el dron esté inclinado
-            var worldCenter = transform.TransformPoint(_boxCol.center);
-            var hits = Physics.OverlapBox(
-                worldCenter,
-                _boxCol.size * 0.5f,
-                transform.rotation,
-                ~0,
-                QueryTriggerInteraction.Ignore);   // sólo colliders físicos (no triggers)
-
-            foreach (var h in hits)
-            {
-                // El collider del jugador está en [Moto_Runner] con tag "Player"
-                if (!h.CompareTag("Player")) continue;
-
-                Debug.Log($"[Dron] Impacto en jugador '{h.name}'");
-                GetComponent<DroneCollisionHandler>()?.ApplyChargeDamage(h);
-                break;
-            }
-        }
-
         /// <summary>Llamado por DroneCollisionHandler tras aplicar el daño.</summary>
         public void OnChargeDamageDealt() => CanDamagePlayer = false;
+
+        // ── Separación: empuja los drones que se acercan demasiado entre sí ──
+        private void AplicarSeparacion()
+        {
+            // Durante embestida y wind-up el dron sigue su trayectoria fija; no desviarlo
+            if (_state == DroneState.WindUp || _state == DroneState.Charging) return;
+            if (_allDrones.Count <= 1) return;
+
+            Vector3 push = Vector3.zero;
+            foreach (var other in _allDrones)
+            {
+                if (other == this || other == null) continue;
+                Vector3 diff = transform.position - other.transform.position;
+                diff.y = 0f; // solo separación horizontal; la levitación controla Y
+                float dist = diff.magnitude;
+                if (dist > 0.01f && dist < separationRadius)
+                {
+                    // Empuje proporcional a la proximidad: más fuerte cuanto más cerca
+                    float strength = 1f - (dist / separationRadius);
+                    push += diff.normalized * strength;
+                }
+            }
+
+            if (push.sqrMagnitude < 0.001f) return;
+
+            Vector3 pos = transform.position;
+            pos.x += push.x * separationSpeed * Time.deltaTime;
+            pos.z += push.z * separationSpeed * Time.deltaTime;
+            // Respetar los límites laterales de patrullaje incluso con la separación
+            pos.x = Mathf.Clamp(pos.x, minX, maxX);
+            transform.position = pos;
+        }
 
         // ── Levitación: seno sobre _logicalY (no acumulativo) ────────────────
         private void AplicarLevitacion()
@@ -248,7 +295,6 @@ namespace NeoFastRider.Enemies
             if (_state == DroneState.Charging || _state == DroneState.WindUp) return;
 
             Vector3 pos = transform.position;
-            // Sobreescribir Y con la base lógica + seno → sin drift acumulativo
             pos.y = _logicalY + Mathf.Sin(Time.time * levitationFrequency * Mathf.PI * 2f) * levitationAmplitude;
             transform.position = pos;
         }
@@ -258,7 +304,6 @@ namespace NeoFastRider.Enemies
         {
             float refSpeed = Mathf.Max(patrolSpeed, chaseSpeedX, 0.01f);
 
-            // Durante embestida: inclinarse hacia adelante (pitch negativo)
             float targetZ = _state == DroneState.Charging
                 ? 0f
                 : -Mathf.Clamp((_lateralVelocity / refSpeed) * maxBankAngle, -maxBankAngle, maxBankAngle);
@@ -284,6 +329,10 @@ namespace NeoFastRider.Enemies
 
             Gizmos.color = new Color(1f, 0.4f, 0f, 0.25f);
             Gizmos.DrawWireSphere(c, detectionDistance);
+
+            // Separación: radio en magenta
+            Gizmos.color = new Color(1f, 0f, 1f, 0.2f);
+            Gizmos.DrawWireSphere(c, separationRadius);
 
             if (_state == DroneState.Charging)
             {

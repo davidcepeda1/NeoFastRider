@@ -14,6 +14,7 @@ namespace NeoFastRider.Enemies
 
         private DroneAIController _ai;
         private NeoFastRider.UI.HelmetVisorController _hud;
+        private NeoFastRider.Moto.PlayerShieldController _shield;
 
         private void Awake()
         {
@@ -22,21 +23,28 @@ namespace NeoFastRider.Enemies
 
         private void Start()
         {
-            // Buscar el HUD en la escena (mismo mecanismo que PlayerPulseWeapon)
-            _hud = Object.FindObjectOfType<NeoFastRider.UI.HelmetVisorController>();
+            _hud    = Object.FindObjectOfType<NeoFastRider.UI.HelmetVisorController>();
+            _shield = Object.FindAnyObjectByType<NeoFastRider.Moto.PlayerShieldController>();
             if (_hud == null)
                 Debug.LogWarning("[DroneCollisionHandler] HelmetVisorController no encontrado en escena.");
         }
 
         /// <summary>
-        /// Llamado por DroneAIController.ComprobarImpactoJugador() vía OverlapBox.
-        /// Drena CoreEnergy del HUD (10% por embestida).
+        /// Llamado por DroneAIController cuando la embestida alcanza al jugador.
+        /// Si el escudo está activo, lo absorbe y destruye este dron en lugar de aplicar daño.
         /// </summary>
         public void ApplyChargeDamage(Collider playerCollider)
         {
             if (_ai == null || !_ai.CanDamagePlayer) return;
-            if (_hud == null) return;
 
+            // El escudo absorbe el impacto: destruye al dron, no aplica daño
+            if (_shield != null && _shield.IsShieldActive)
+            {
+                _shield.AbsorbImpact(gameObject);
+                return;
+            }
+
+            if (_hud == null) return;
             _hud.ConsumeCoreEnergy(chargeDamagePercent);
             _hud.TriggerShake();
             _ai.OnChargeDamageDealt();
@@ -59,7 +67,7 @@ namespace NeoFastRider.Enemies
             SpawnExplosionAndDestroy();
         }
 
-        private void SpawnExplosionAndDestroy()
+        public void SpawnExplosionAndDestroy()
         {
             if (explosionPrefab != null)
                 Instantiate(explosionPrefab, transform.position, Quaternion.identity);

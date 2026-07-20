@@ -6,6 +6,8 @@ TagManager:
   tags:
   - FxTemporaire
   - Player
+  - Enemigo
+  - Obstacle
   layers:
   - Default
   - TransparentFX

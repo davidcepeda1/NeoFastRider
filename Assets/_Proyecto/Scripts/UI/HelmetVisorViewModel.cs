@@ -130,6 +130,31 @@ namespace NeoFastRider.UI
             }
         }
 
+        // ── TUTORIAL PROMPT ───────────────────────────────────────────────
+        private string _tutorialPromptText = string.Empty;
+        public string TutorialPromptText
+        {
+            get => _tutorialPromptText;
+            set
+            {
+                if (_tutorialPromptText == value) return;
+                _tutorialPromptText = value;
+                Notify(nameof(TutorialPromptText));
+            }
+        }
+
+        private bool _isTutorialPromptVisible;
+        public bool IsTutorialPromptVisible
+        {
+            get => _isTutorialPromptVisible;
+            set
+            {
+                if (_isTutorialPromptVisible == value) return;
+                _isTutorialPromptVisible = value;
+                Notify(nameof(IsTutorialPromptVisible));
+            }
+        }
+
         // ── SHAKE OFFSET ──────────────────────────────────────────────────
         private double _shakeOffsetX;
         public double ShakeOffsetX

@@ -75,6 +75,9 @@ public sealed class ShieldPowerUp : MonoBehaviour
         else
             Debug.LogWarning("[ShieldPowerUp] PlayerShieldController no encontrado en escena.");
 
+        var visor = FindAnyObjectByType<NeoFastRider.UI.HelmetVisorController>();
+        visor?.ShowTutorialPrompt("¡Escudo obtenido! Presiona 'E' para activarlo.", 4f);
+
         StartCoroutine(CollectRoutine());
     }
 

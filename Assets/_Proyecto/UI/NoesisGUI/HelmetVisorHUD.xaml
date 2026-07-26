@@ -241,6 +241,26 @@
     </Border>
 
     <!-- ══════════════════════════════════════════════════
+         FILA 1: PROMPT DE TUTORIAL — centro, sobre el HUD inferior
+         ══════════════════════════════════════════════════ -->
+    <Border Grid.Row="1"
+            HorizontalAlignment="Center" VerticalAlignment="Bottom"
+            Margin="0,0,0,24"
+            MaxWidth="340"
+            Background="{StaticResource PanelBg}"
+            BorderBrush="{StaticResource CyanDimBrush}"
+            BorderThickness="1" CornerRadius="2"
+            Padding="12,5,12,5"
+            Opacity="0.9"
+            Visibility="{Binding IsTutorialPromptVisible, Converter={StaticResource BoolToVis}}">
+        <TextBlock Text="{Binding TutorialPromptText}"
+                   Style="{StaticResource HudLabel}"
+                   FontSize="12" FontWeight="SemiBold"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"/>
+    </Border>
+
+    <!-- ══════════════════════════════════════════════════
          FILA 2: HUD INFERIOR
          ══════════════════════════════════════════════════ -->
     <Grid Grid.Row="2" Margin="18,0,18,22">

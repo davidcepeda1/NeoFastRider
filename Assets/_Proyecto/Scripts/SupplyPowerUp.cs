@@ -66,6 +66,9 @@ public class SupplyPowerUp : MonoBehaviour
         var weapon = FindAnyObjectByType<NeoFastRider.Moto.PlayerPulseWeapon>();
         weapon?.SetLaserEnergy(1f);
 
+        var visor = FindAnyObjectByType<NeoFastRider.UI.HelmetVisorController>();
+        visor?.ShowTutorialPrompt("¡Energía de Láser recargada! Mantén 'SPACE' para disparar.", 4f);
+
         StartCoroutine(CollectRoutine(other.transform));
     }
 

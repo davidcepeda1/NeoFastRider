@@ -53,6 +53,13 @@ namespace NeoFastRider.Moto
         public float BaseSpeedKmh  => _baseSpeedKmh;
         public float BoostSpeedKmh => _boostSpeedKmh;
 
+        /// <summary>Permite a un manager de nivel (ej. rampa de dificultad) ajustar el rango de velocidad en runtime.</summary>
+        public void SetSpeedRange(float baseSpeedKmh, float boostSpeedKmh)
+        {
+            _baseSpeedKmh  = baseSpeedKmh;
+            _boostSpeedKmh = boostSpeedKmh;
+        }
+
         private void Awake()
         {
             _rb         = GetComponent<Rigidbody>();

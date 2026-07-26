@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using NeoFastRider.UI;
 
 namespace NeoFastRider.Core
 {
@@ -9,22 +10,28 @@ namespace NeoFastRider.Core
     ///
     /// SYSTEM DESIGN RULES:
     ///   1. IMMORTAL SANDBOX  — integrity clamped to >=1%; OnRunnerDeath suppressed.
-    ///   2. NO PAUSE SYSTEM   — ESC and P inputs consumed/swallowed every frame.
-    ///   3. FAIL-SAFE LOOP    — collision triggers 0.3s fade-to-black + teleport to
-    ///                          active checkpoint Z + "INTÉNTALO DE NUEVO" overlay.
+    ///   2. NO PAUSE SYSTEM   — ESC y P inputs consumed/swallowed every frame.
+    ///   3. FAIL-SAFE LOOP    — al chocar con un obstáculo (ver
+    ///                          TutorialObstacleCollisionRelay), fade-to-black +
+    ///                          teleport al punto inicial del nivel + overlay
+    ///                          "INTÉNTALO DE NUEVO", en vez de quedar bloqueado
+    ///                          por la física del obstáculo.
     /// </summary>
     public sealed class TutorialManager : MonoBehaviour
     {
         public static TutorialManager Instance { get; private set; }
 
         [Header("Moto References")]
-        [SerializeField] private NeoFastRider.Moto.MotoEntity  _motoEntity;
-        [SerializeField] private NeoFastRider.Moto.MotoPhysics _motoPhysics;
+        [SerializeField] private NeoFastRider.Moto.PlayerHealth      _playerHealth;
+        [SerializeField] private NeoFastRider.Moto.MotoForwardDriver _motoForward;
 
         [Header("HUD References")]
+        [Tooltip("Opcional: solo si la escena usa Canvas+TMP. Este nivel usa NoesisGUI (ver _visor).")]
         [SerializeField] private UnityEngine.UI.Image    _fadeOverlay;
         [SerializeField] private TMPro.TextMeshProUGUI   _retryText;
         [SerializeField] private TMPro.TextMeshProUGUI   _zonePromptText;
+
+        private HelmetVisorController _visor;
 
         [Header("Zone Z Coordinates")]
         [SerializeField] private float _zoneAStartZ = 0f;
@@ -33,29 +40,38 @@ namespace NeoFastRider.Core
 
         [Header("Zone Prompts")]
         [SerializeField, TextArea] private string _promptZoneA =
-            "MOTO SE MUEVE AUTOMÁTICAMENTE.\nMANTÉN 'W' PARA ACELERAR AL MÁXIMO (120 km/h)";
-        [SerializeField, TextArea] private string _promptZoneB =
-            "OBSTÁCULO ADELANTE.\nUSA 'A/D' PARA CAMBIAR AL CARRIL LIBRE";
+            "¡OBSTÁCULO ADELANTE! USA 'A/D' PARA CAMBIAR DE CARRIL";
+        [Tooltip("Vacío = sin aviso adicional en esta zona.")]
+        [SerializeField, TextArea] private string _promptZoneB = "";
         [SerializeField, TextArea] private string _promptZoneC =
-            "BARRERA IMPASABLE.\nPRESIONA 'ESPACIO' PARA DISPARAR TU CAÑÓN DE PULSO";
+            "PRESIONA 'ESPACIO' PARA DISPARAR";
 
         [Header("Timing")]
         [SerializeField] private float _fadeDuration  = 0.15f;
         [SerializeField] private float _retryHoldTime = 1.0f;
 
-        private int   _currentZone = 0;
-        private float _checkpointZ = 0f;
-        private bool  _resetting   = false;
+        private int        _currentZone = 0;
+        private bool       _resetting   = false;
+        private Vector3    _levelStartPosition;
+        private Quaternion _levelStartRotation;
+        private Rigidbody  _motoRigidbody;
 
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
 
-            if (_motoEntity != null)
-                _motoEntity.OnRunnerDeath += HandleDeathSuppressed;
+            _visor = FindFirstObjectByType<HelmetVisorController>();
 
-            _checkpointZ = _zoneAStartZ;
+            if (_playerHealth != null)
+                _playerHealth.OnPlayerDeath += HandleDeathSuppressed;
+
+            if (_motoForward != null)
+            {
+                _levelStartPosition = _motoForward.transform.position;
+                _levelStartRotation = _motoForward.transform.rotation;
+                _motoRigidbody      = _motoForward.GetComponent<Rigidbody>();
+            }
         }
 
         private void Start()
@@ -67,8 +83,8 @@ namespace NeoFastRider.Core
 
         private void OnDestroy()
         {
-            if (_motoEntity != null)
-                _motoEntity.OnRunnerDeath -= HandleDeathSuppressed;
+            if (_playerHealth != null)
+                _playerHealth.OnPlayerDeath -= HandleDeathSuppressed;
         }
 
         private void Update()
@@ -80,11 +96,11 @@ namespace NeoFastRider.Core
             { /* consumed */ }
 
             // ── RULE 1: keep integrity above 1% ──────────────────────────────
-            _motoEntity?.ClampIntegrityMin(1f);
+            _playerHealth?.ClampMinPercent(1f);
 
             // ── Zone detection from Z position ────────────────────────────────
-            if (_motoPhysics != null)
-                EvaluateZone(_motoPhysics.transform.position.z);
+            if (_motoForward != null)
+                EvaluateZone(_motoForward.transform.position.z);
         }
 
         /// <summary>Called by MotoArsenal or obstacles on unshielded collision.</summary>
@@ -95,7 +111,7 @@ namespace NeoFastRider.Core
 
         private void HandleDeathSuppressed()
         {
-            _motoEntity?.ForceRestoreIntegrity(100f);
+            _playerHealth?.ForceRestorePercent(100f);
             if (!_resetting) StartCoroutine(FailSafeReset());
         }
 
@@ -104,17 +120,19 @@ namespace NeoFastRider.Core
             int newZone = z >= _zoneCStartZ ? 2 : z >= _zoneBStartZ ? 1 : 0;
             if (newZone == _currentZone) return;
             _currentZone = newZone;
-            _checkpointZ = newZone == 2 ? _zoneCStartZ
-                         : newZone == 1 ? _zoneBStartZ : _zoneAStartZ;
             UpdateZonePrompt();
         }
 
         private void UpdateZonePrompt()
         {
-            if (_zonePromptText == null) return;
-            _zonePromptText.text = _currentZone == 2 ? _promptZoneC
-                                 : _currentZone == 1 ? _promptZoneB
-                                 : _promptZoneA;
+            string prompt = _currentZone == 2 ? _promptZoneC
+                          : _currentZone == 1 ? _promptZoneB
+                          : _promptZoneA;
+
+            if (_zonePromptText != null) _zonePromptText.text = prompt;
+
+            if (string.IsNullOrWhiteSpace(prompt)) _visor?.HideTutorialPrompt();
+            else _visor?.ShowTutorialPrompt(prompt);
         }
 
         private IEnumerator FailSafeReset()
@@ -123,13 +141,28 @@ namespace NeoFastRider.Core
             yield return Fade(0f, 1f, _fadeDuration);
             ShowRetryText(true);
 
-            if (_motoPhysics != null)
+            if (_motoForward != null)
             {
-                var p = _motoPhysics.transform.position;
-                _motoPhysics.transform.SetPositionAndRotation(
-                    new Vector3(0f, p.y, _checkpointZ), Quaternion.identity);
+                if (_motoRigidbody != null)
+                {
+                    // Evita el "smear" visual de la interpolación al teletransportar
+                    // un Rigidbody dinámico a mitad de una resolución de colisión.
+                    var prevInterpolation = _motoRigidbody.interpolation;
+                    _motoRigidbody.interpolation   = RigidbodyInterpolation.None;
+                    _motoRigidbody.linearVelocity  = Vector3.zero;
+                    _motoRigidbody.angularVelocity = Vector3.zero;
+                    _motoRigidbody.position = _levelStartPosition;
+                    _motoRigidbody.rotation = _levelStartRotation;
+                    Physics.SyncTransforms();
+                    _motoRigidbody.interpolation = prevInterpolation;
+                }
+                else
+                {
+                    _motoForward.transform.SetPositionAndRotation(
+                        _levelStartPosition, _levelStartRotation);
+                }
             }
-            _motoEntity?.ForceRestoreIntegrity(100f);
+            _playerHealth?.ForceRestorePercent(100f);
 
             yield return new WaitForSeconds(_retryHoldTime);
             ShowRetryText(false);

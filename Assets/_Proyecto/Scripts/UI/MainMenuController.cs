@@ -22,7 +22,13 @@ namespace NeoFastRider.UI
         [SerializeField] private AudioSource _menuAudioSource;
 
         [Header("Scene Routing")]
-        [SerializeField] private string _gameplaySceneName = "Scene_Gameplay";
+        [Tooltip("Nivel que se carga la PRIMERA vez que alguien juega (onboarding).")]
+        [SerializeField] private string _gameplaySceneName = "Scene_TutorialLevel";
+
+        [Tooltip("Nivel para partidas posteriores a la primera. Vacío = usa el mismo de la primera vez (todavía no existe un nivel dedicado).")]
+        [SerializeField] private string _returningPlayerSceneName = "";
+
+        private const string FirstLaunchPrefKey = "NFR_HasLaunchedBefore";
 
         [Tooltip("Duration in seconds to smoothly duck BGM volume before scene switch.")]
         [SerializeField] private float _sceneTransitionFadeDuration = 0.5f;
@@ -53,7 +59,19 @@ namespace NeoFastRider.UI
         {
             if (_transitioning) return;
             _transitioning = true;
-            StartCoroutine(TransitionToGameplay());
+
+            bool isFirstLaunch = PlayerPrefs.GetInt(FirstLaunchPrefKey, 0) == 0;
+            string targetScene = (isFirstLaunch || string.IsNullOrEmpty(_returningPlayerSceneName))
+                ? _gameplaySceneName
+                : _returningPlayerSceneName;
+
+            if (isFirstLaunch)
+            {
+                PlayerPrefs.SetInt(FirstLaunchPrefKey, 1);
+                PlayerPrefs.Save();
+            }
+
+            StartCoroutine(TransitionToGameplay(targetScene));
         }
 
         /// <summary>Opens or closes the Level Selection sub-panel.</summary>
@@ -87,10 +105,10 @@ namespace NeoFastRider.UI
         /// then allows the pre-loaded scene to activate.
         /// Uses unscaledDeltaTime — immune to Time.timeScale changes.
         /// </summary>
-        private IEnumerator TransitionToGameplay()
+        private IEnumerator TransitionToGameplay(string sceneName)
         {
             // Start async load immediately; hold at 90% until audio fade completes
-            _loadOp = SceneManager.LoadSceneAsync(_gameplaySceneName);
+            _loadOp = SceneManager.LoadSceneAsync(sceneName);
             if (_loadOp != null)
                 _loadOp.allowSceneActivation = false;
 
@@ -114,7 +132,7 @@ namespace NeoFastRider.UI
             if (_loadOp != null)
                 _loadOp.allowSceneActivation = true;
             else
-                SceneManager.LoadScene(_gameplaySceneName);
+                SceneManager.LoadScene(sceneName);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────

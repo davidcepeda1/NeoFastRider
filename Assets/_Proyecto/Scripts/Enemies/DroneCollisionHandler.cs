@@ -6,6 +6,9 @@ namespace NeoFastRider.Enemies
     [RequireComponent(typeof(Collider))]
     public sealed class DroneCollisionHandler : MonoBehaviour
     {
+        /// <summary>Se dispara justo antes de destruir cualquier dron (por cualquier medio).</summary>
+        public static event System.Action OnAnyDroneDestroyed;
+
         [Tooltip("Prefab de explosión instanciado al morir.")]
         public GameObject explosionPrefab;
 
@@ -71,6 +74,7 @@ namespace NeoFastRider.Enemies
         {
             if (explosionPrefab != null)
                 Instantiate(explosionPrefab, transform.position, Quaternion.identity);
+            OnAnyDroneDestroyed?.Invoke();
             Destroy(gameObject);
         }
     }

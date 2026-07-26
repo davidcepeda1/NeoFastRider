@@ -8,9 +8,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/RayznGames/BicycleSystem/URP/Scenes/BicycleScene_URP.unity
     guid: 52f1b87deb02d3d4eafa0f0c179b4db1
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/_Proyecto/Scenes/Scene_TutorialLevel.unity
+    guid: ea0c2e1afeca720338d6767e7a2a3d9d
+  - enabled: 1
+    path: Assets/_Proyecto/Scenes/Scene_MainMenu.unity
+    guid: 7835c9634cdbe8f7db12891728a5c736
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

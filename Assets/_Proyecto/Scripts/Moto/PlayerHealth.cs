@@ -12,6 +12,8 @@ namespace NeoFastRider.Moto
 
         private float _current;
 
+        public event System.Action OnPlayerDeath;
+
         public float Current    => _current;
         public float Max        => maxHealth;
         public float Percent    => _current / maxHealth;
@@ -24,7 +26,24 @@ namespace NeoFastRider.Moto
             if (IsDead) return;
             _current = Mathf.Max(0f, _current - amount);
             Debug.Log($"[PlayerHealth] Daño recibido: -{amount} | Vida restante: {_current}/{maxHealth}");
-            if (IsDead) Debug.Log("[PlayerHealth] El Runner ha sido eliminado.");
+            if (IsDead)
+            {
+                Debug.Log("[PlayerHealth] El Runner ha sido eliminado.");
+                OnPlayerDeath?.Invoke();
+            }
+        }
+
+        /// <summary>Evita que la vida baje del porcentaje indicado (0-100).</summary>
+        public void ClampMinPercent(float minPercent)
+        {
+            float min = maxHealth * Mathf.Clamp01(minPercent / 100f);
+            if (_current < min) _current = min;
+        }
+
+        /// <summary>Fuerza la vida al porcentaje indicado (0-100).</summary>
+        public void ForceRestorePercent(float percent)
+        {
+            _current = maxHealth * Mathf.Clamp01(percent / 100f);
         }
     }
 }

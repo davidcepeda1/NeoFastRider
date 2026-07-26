@@ -158,6 +158,40 @@ namespace NeoFastRider.UI
             _shaking = false;
         }
 
+        // ── Tutorial Prompt API ─────────────────────────────────────────────
+        private Coroutine _promptHideRoutine;
+
+        /// <param name="autoHideSeconds">0 = permanece visible hasta el próximo Show/Hide.</param>
+        public void ShowTutorialPrompt(string message, float autoHideSeconds = 0f)
+        {
+            if (_vm == null) return;
+            _vm.TutorialPromptText      = message;
+            _vm.IsTutorialPromptVisible = true;
+
+            if (_promptHideRoutine != null) StopCoroutine(_promptHideRoutine);
+            _promptHideRoutine = autoHideSeconds > 0f
+                ? StartCoroutine(HidePromptAfter(autoHideSeconds))
+                : null;
+        }
+
+        public void HideTutorialPrompt()
+        {
+            if (_vm == null) return;
+            if (_promptHideRoutine != null)
+            {
+                StopCoroutine(_promptHideRoutine);
+                _promptHideRoutine = null;
+            }
+            _vm.IsTutorialPromptVisible = false;
+        }
+
+        private IEnumerator HidePromptAfter(float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+            _vm.IsTutorialPromptVisible = false;
+            _promptHideRoutine = null;
+        }
+
         public void ResetLevel()
         {
             _timeRemaining     = _levelDuration;

@@ -34,6 +34,9 @@ namespace NeoFastRider.Core
         public float TimeRemaining => _timeRemaining;
         public bool  IsFinished    => _finished;
 
+        /// <summary>Se dispara cuando se acaba el tiempo sin haber llegado a la meta. Lo escucha GameOverManager.</summary>
+        public event System.Action OnTimeUp;
+
         private float _timeRemaining;
         private bool  _finished;
 
@@ -86,8 +89,7 @@ namespace NeoFastRider.Core
         {
             _finished = true;
             Debug.Log("[LevelGoalManager] Tiempo agotado antes de llegar a la meta.");
-
-            // TODO: condición de fallo — pendiente de diseño (definida por el usuario más adelante).
+            OnTimeUp?.Invoke();
         }
     }
 }

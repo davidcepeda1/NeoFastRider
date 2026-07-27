@@ -4,6 +4,7 @@
       HorizontalAlignment="Stretch"
       VerticalAlignment="Stretch"
       Background="Transparent"
+      Opacity="{Binding HudOpacity}"
       x:Name="VisorRoot">
 
     <!--

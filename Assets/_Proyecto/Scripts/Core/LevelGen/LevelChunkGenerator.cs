@@ -82,6 +82,16 @@ namespace NeoFastRider.Core.LevelGen
 
         public Transform FinishLineInstance { get; private set; }
 
+        /// <summary>
+        /// Ruta recomendada precalculada durante la generación: en cada tramo recto pasa por el
+        /// centro del hueco más ancho entre los obstáculos ya colocados (en curvas y tramos
+        /// vacíos, sigue el centro del camino). Pensada para que un indicador en tiempo real
+        /// (p.ej. una línea guía) solo tenga que leer estos puntos con anticipación, sin tener
+        /// que detectar obstáculos por su cuenta cuadro a cuadro.
+        /// </summary>
+        public IReadOnlyList<Vector3> SafePathWaypoints => _safePathWaypoints;
+        private readonly List<Vector3> _safePathWaypoints = new List<Vector3>();
+
         private Transform _root;
         private Transform _cityRoot;
         private readonly List<(Vector3 a, Vector3 b)> _placedSegments  = new List<(Vector3, Vector3)>();
@@ -110,6 +120,7 @@ namespace NeoFastRider.Core.LevelGen
             _placedSegments.Clear();
             _placedBuildings.Clear();
             _straightsSincePlaced.Clear();
+            _safePathWaypoints.Clear();
             _netHeadingDeg        = 0f;
             _straightsSinceCurve  = _minStraightsBetweenCurves; // permite curva desde el arranque
 
@@ -128,6 +139,11 @@ namespace NeoFastRider.Core.LevelGen
                 var chunkInstance = Instantiate(chosen, cursorPos, cursorRot, _root);
 
                 RandomizeObstacleLayout(chunkInstance.transform);
+
+                if (chosen.Kind == LevelChunkInfo.ChunkKind.Straight)
+                    AppendSafePathForStraight(cursorPos, cursorRot, chosen.ForwardLength, chunkInstance.transform);
+                else
+                    AppendSafePathForCurve(cursorPos, cursorRot, chosen.ForwardLength, chosen.TurnAngleY);
 
                 if (Mathf.Approximately(chosen.TurnAngleY, 0f))
                 {
@@ -232,6 +248,221 @@ namespace NeoFastRider.Core.LevelGen
                 if (mirror) pos.x = -pos.x;
                 pos.x = Mathf.Clamp(pos.x + shift, -_roadHalfWidth + 0.5f, _roadHalfWidth - 0.5f);
                 child.localPosition = pos;
+            }
+        }
+
+        /// <summary>
+        /// Agrega waypoints de la ruta segura para un tramo recto. Antes se calculaba, en cada
+        /// rebanada Z, el "hueco más ancho" de forma independiente — con pocos obstáculos
+        /// funcionaba, pero con varios (o mal distribuidos) dos rebanadas vecinas podían elegir
+        /// huecos en lados OPUESTOS, y la línea recta que las conecta termina cruzando justo por
+        /// donde está el obstáculo (o generando saltos/"encierros" raros). Ahora se resuelve como
+        /// lo que realmente es: búsqueda del camino más corto en una grilla 2D (Z × X), donde solo
+        /// se puede avanzar entre celdas libres ADYACENTES — así la continuidad queda garantizada
+        /// sin importar cuántos obstáculos haya ni cómo estén distribuidos.
+        /// </summary>
+        private void AppendSafePathForStraight(Vector3 cursorPos, Quaternion cursorRot, float forwardLength, Transform chunkInstance)
+        {
+            Vector3 forward = cursorRot * Vector3.forward;
+            Vector3 right   = cursorRot * Vector3.right;
+
+            // Huella de cada obstáculo de este chunk, en espacio local del chunk (z = a lo largo,
+            // x = lateral), con un margen de seguridad extra para no rozarlos.
+            const float safetyMargin = 1f;
+            var obstacles = new List<(float zMin, float zMax, float xMin, float xMax)>();
+
+            foreach (Transform child in chunkInstance)
+            {
+                if (!child.name.StartsWith("Obstacle_")) continue;
+                var colliders = child.GetComponentsInChildren<Collider>();
+                if (colliders.Length == 0) continue;
+
+                Bounds worldBounds = colliders[0].bounds;
+                for (int i = 1; i < colliders.Length; i++) worldBounds.Encapsulate(colliders[i].bounds);
+
+                float xMin = float.PositiveInfinity, xMax = float.NegativeInfinity;
+                float zMin = float.PositiveInfinity, zMax = float.NegativeInfinity;
+                for (int cx = 0; cx <= 1; cx++)
+                for (int cy = 0; cy <= 1; cy++)
+                for (int cz = 0; cz <= 1; cz++)
+                {
+                    Vector3 corner = worldBounds.min + Vector3.Scale(worldBounds.size, new Vector3(cx, cy, cz));
+                    Vector3 local  = chunkInstance.InverseTransformPoint(corner);
+                    xMin = Mathf.Min(xMin, local.x); xMax = Mathf.Max(xMax, local.x);
+                    zMin = Mathf.Min(zMin, local.z); zMax = Mathf.Max(zMax, local.z);
+                }
+                obstacles.Add((zMin - safetyMargin, zMax + safetyMargin, xMin - safetyMargin, xMax + safetyMargin));
+            }
+
+            float laneMin = -_roadHalfWidth + 0.5f;
+            float laneMax =  _roadHalfWidth - 0.5f;
+
+            foreach (var (z, x) in FindGridPath(obstacles, forwardLength, laneMin, laneMax))
+                AddSafePathWaypoint(cursorPos + forward * z + right * x);
+        }
+
+        /// <summary>
+        /// Busca el camino más corto (Dijkstra, 8 direcciones) entre el centro de entrada
+        /// (z=0,x=0) y el centro de salida (z=forwardLength,x=0) de un tramo, a través de una
+        /// grilla local donde cada celda es libre u ocupada según los obstáculos reales. Un
+        /// pequeño sesgo hacia el centro evita zigzagueos innecesarios cuando hay varios caminos
+        /// igual de cortos. Devuelve directamente los puntos ya en camino más corto encontrado —
+        /// nunca "salta" entre huecos no conectados, porque solo puede moverse entre celdas
+        /// adyacentes que ya se sabe que están libres.
+        /// </summary>
+        private static List<(float z, float x)> FindGridPath(
+            List<(float zMin, float zMax, float xMin, float xMax)> obstacles,
+            float forwardLength, float laneMin, float laneMax)
+        {
+            const float zStep      = 1f;
+            const float xStep      = 1f;
+            const float centerBias = 0.05f;
+
+            int rows = Mathf.Max(2, Mathf.RoundToInt(forwardLength / zStep) + 1);
+            int cols = Mathf.Max(2, Mathf.RoundToInt((laneMax - laneMin) / xStep) + 1);
+
+            var zOf = new float[rows];
+            for (int r = 0; r < rows; r++) zOf[r] = Mathf.Min(r * zStep, forwardLength);
+            var xOf = new float[cols];
+            for (int c = 0; c < cols; c++) xOf[c] = laneMin + c * xStep;
+
+            var blocked = new bool[rows, cols];
+            for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+            {
+                float z = zOf[r], x = xOf[c];
+                for (int i = 0; i < obstacles.Count; i++)
+                {
+                    var (zMin, zMax, xMin, xMax) = obstacles[i];
+                    if (z >= zMin && z <= zMax && x >= xMin && x <= xMax) { blocked[r, c] = true; break; }
+                }
+            }
+
+            int startCol = NearestFreeCol(blocked, 0,        cols, xOf, 0f);
+            int goalCol  = NearestFreeCol(blocked, rows - 1,  cols, xOf, 0f);
+
+            var dist    = new float[rows, cols];
+            var visited = new bool[rows, cols];
+            var prevR   = new int[rows, cols];
+            var prevC   = new int[rows, cols];
+            for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                dist[r, c] = float.PositiveInfinity;
+            dist[0, startCol] = 0f;
+
+            int[] dr = { -1, -1, -1, 0, 0, 1, 1, 1 };
+            int[] dc = { -1,  0,  1,-1, 1,-1, 0, 1 };
+
+            int lastRowReached = -1;
+            for (int iter = 0; iter < rows * cols; iter++)
+            {
+                int br = -1, bc = -1; float bd = float.PositiveInfinity;
+                for (int r = 0; r < rows; r++)
+                for (int c = 0; c < cols; c++)
+                    if (!visited[r, c] && dist[r, c] < bd) { bd = dist[r, c]; br = r; bc = c; }
+
+                if (br < 0) break; // no queda nada más alcanzable
+                visited[br, bc] = true;
+                if (br == rows - 1) { lastRowReached = bc; break; } // ya llegamos al final del tramo
+
+                for (int k = 0; k < 8; k++)
+                {
+                    int nr = br + dr[k], nc = bc + dc[k];
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                    if (blocked[nr, nc] || visited[nr, nc]) continue;
+
+                    float dz = zOf[nr] - zOf[br], dx = xOf[nc] - xOf[bc];
+                    float stepDist = Mathf.Sqrt(dz * dz + dx * dx);
+                    float cost     = stepDist + centerBias * Mathf.Abs(xOf[nc]) * stepDist;
+                    float nd       = dist[br, bc] + cost;
+
+                    if (nd < dist[nr, nc])
+                    {
+                        dist[nr, nc] = nd;
+                        prevR[nr, nc] = br;
+                        prevC[nr, nc] = bc;
+                    }
+                }
+            }
+
+            int endCol = goalCol;
+            if (lastRowReached >= 0) endCol = lastRowReached;
+            else if (float.IsPositiveInfinity(dist[rows - 1, goalCol]))
+            {
+                float best = float.PositiveInfinity;
+                for (int c = 0; c < cols; c++)
+                    if (dist[rows - 1, c] < best) { best = dist[rows - 1, c]; endCol = c; }
+            }
+
+            var path = new List<(float z, float x)>();
+            if (float.IsPositiveInfinity(dist[rows - 1, endCol]))
+            {
+                // Caso extremo (no debería ocurrir dado el margen que ya exige la generación de
+                // obstáculos): sin celda libre alcanzable en la última fila — última salida segura.
+                path.Add((0f, 0f));
+                path.Add((forwardLength, 0f));
+                return path;
+            }
+
+            var reversed = new List<(int r, int c)>();
+            int curR = rows - 1, curC = endCol;
+            while (!(curR == 0 && curC == startCol))
+            {
+                reversed.Add((curR, curC));
+                int pr = prevR[curR, curC], pc = prevC[curR, curC];
+                curR = pr; curC = pc;
+            }
+            reversed.Add((0, startCol));
+            reversed.Reverse();
+
+            foreach (var (r, c) in reversed) path.Add((zOf[r], xOf[c]));
+            return path;
+        }
+
+        /// <summary>Columna libre más cercana a preferredX en una fila dada (búsqueda en espiral desde la columna preferida).</summary>
+        private static int NearestFreeCol(bool[,] blocked, int row, int cols, float[] xOf, float preferredX)
+        {
+            int preferredCol = 0;
+            float bestDist = float.PositiveInfinity;
+            for (int c = 0; c < cols; c++)
+            {
+                float d = Mathf.Abs(xOf[c] - preferredX);
+                if (d < bestDist) { bestDist = d; preferredCol = c; }
+            }
+            if (!blocked[row, preferredCol]) return preferredCol;
+
+            for (int offset = 1; offset < cols; offset++)
+            {
+                int left = preferredCol - offset, right = preferredCol + offset;
+                if (left >= 0 && !blocked[row, left]) return left;
+                if (right < cols && !blocked[row, right]) return right;
+            }
+            return preferredCol; // no debería llegar acá si hay al menos una celda libre en la fila
+        }
+
+        /// <summary>
+        /// Agrega un waypoint de ruta segura, salvo que sea (casi) el mismo punto que el último
+        /// agregado. La unión entre chunks siempre repite el punto exacto (fin de uno = inicio
+        /// del siguiente); sin este filtro, esos duplicados generaban segmentos de longitud cero
+        /// que le rompían la fluidez a la curva de presentación (SafePathIndicator).
+        /// </summary>
+        private void AddSafePathWaypoint(Vector3 point)
+        {
+            if (_safePathWaypoints.Count > 0 &&
+                (point - _safePathWaypoints[_safePathWaypoints.Count - 1]).sqrMagnitude < 0.0001f)
+                return;
+            _safePathWaypoints.Add(point);
+        }
+
+        /// <summary>Waypoints de ruta segura para una curva: no hay obstáculos en curvas, así que sigue el centro del arco real.</summary>
+        private void AppendSafePathForCurve(Vector3 cursorPos, Quaternion cursorRot, float forwardLength, float turnAngleY)
+        {
+            const int samples = 8;
+            for (int i = 0; i <= samples; i++)
+            {
+                float t = (float)i / samples;
+                var (pos, _) = ComputeArcPoint(cursorPos, cursorRot, forwardLength, turnAngleY, t);
+                AddSafePathWaypoint(pos);
             }
         }
 

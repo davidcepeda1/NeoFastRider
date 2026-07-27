@@ -49,9 +49,11 @@ namespace NeoFastRider.Moto
         private bool           _grounded;
         private float          _prevLaneX;
 
-        public float CurrentKmh    => _currentKmh;
-        public float BaseSpeedKmh  => _baseSpeedKmh;
-        public float BoostSpeedKmh => _boostSpeedKmh;
+        public float CurrentKmh     => _currentKmh;
+        public float BaseSpeedKmh   => _baseSpeedKmh;
+        public float BoostSpeedKmh  => _boostSpeedKmh;
+        /// <summary>True mientras se mantiene presionado el boost ('W'). Útil para mostrar HUD/indicadores solo cuando el jugador no está acelerando a fondo.</summary>
+        public bool  IsAccelerating { get; private set; }
 
         /// <summary>Permite a un manager de nivel (ej. rampa de dificultad) ajustar el rango de velocidad en runtime.</summary>
         public void SetSpeedRange(float baseSpeedKmh, float boostSpeedKmh)
@@ -106,7 +108,8 @@ namespace NeoFastRider.Moto
             if (Keyboard.current == null) return;
 
             // A/D lo maneja LaneController (movimiento libre)
-            bool wHeld   = Keyboard.current.wKey.isPressed;
+            bool wHeld    = Keyboard.current.wKey.isPressed;
+            IsAccelerating = wHeld;
             float target = wHeld ? _boostSpeedKmh : _baseSpeedKmh;
             float rate   = wHeld ? _accelRate : _decelRate;
             _currentKmh  = Mathf.MoveTowards(_currentKmh, target, rate * Time.deltaTime);

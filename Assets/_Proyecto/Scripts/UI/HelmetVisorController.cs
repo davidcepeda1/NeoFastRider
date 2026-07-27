@@ -133,6 +133,13 @@ namespace NeoFastRider.UI
             if (_vm != null) _vm.LaserEnergy = Mathf.Clamp01(_vm.LaserEnergy - amount);
         }
 
+        // ── Opacidad general del HUD ──────────────────────────────────────────
+        /// <summary>0 = HUD invisible, 1 = HUD normal. Ver comentario de HudOpacity en el ViewModel.</summary>
+        public void SetHudOpacity(float opacity)
+        {
+            if (_vm != null) _vm.HudOpacity = opacity;
+        }
+
         // ── Shake ───────────────────────────────────────────────────────────
         public void TriggerShake()
         {

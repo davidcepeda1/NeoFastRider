@@ -155,6 +155,25 @@ namespace NeoFastRider.UI
             }
         }
 
+        // ── OPACIDAD GENERAL DEL HUD [0..1] ─────────────────────────────────
+        // NoesisGUI se renderiza con su propia cámara/pipeline, por fuera del
+        // sistema de Canvas de uGUI — un overlay uGUI (p.ej. el fundido a negro
+        // de PauseManager) no lo tapa por más "encima" que esté configurado.
+        // Esta propiedad, bindeada al Opacity del Grid raíz en el XAML, es la
+        // única forma confiable de ocultar/desvanecer el HUD completo.
+        private double _hudOpacity = 1.0;
+        public double HudOpacity
+        {
+            get => _hudOpacity;
+            set
+            {
+                value = Math.Max(0.0, Math.Min(1.0, value));
+                if (Math.Abs(_hudOpacity - value) < 0.001) return;
+                _hudOpacity = value;
+                Notify(nameof(HudOpacity));
+            }
+        }
+
         // ── SHAKE OFFSET ──────────────────────────────────────────────────
         private double _shakeOffsetX;
         public double ShakeOffsetX

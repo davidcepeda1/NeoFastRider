@@ -5442,6 +5442,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NeoFastRider.UI.MainMenuController
   _menuAudioSource: {fileID: 752708951}
   _gameplaySceneName: Scene_TutorialLevel
+  _returningPlayerSceneName: Scene_Level_01
   _sceneTransitionFadeDuration: 0.5
   _levelSelectPanel: {fileID: 1619149456}
   _optionsPanel: {fileID: 1863477168}

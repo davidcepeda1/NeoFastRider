@@ -45,5 +45,8 @@ namespace NeoFastRider.Moto
         {
             _current = maxHealth * Mathf.Clamp01(percent / 100f);
         }
+
+        /// <summary>Lleva la vida a 0 de inmediato (choque con obstáculo, etc.) y dispara OnPlayerDeath.</summary>
+        public void Kill() => TakeDamage(maxHealth);
     }
 }

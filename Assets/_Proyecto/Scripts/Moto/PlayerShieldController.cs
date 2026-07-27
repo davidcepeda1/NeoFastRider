@@ -84,25 +84,35 @@ namespace NeoFastRider.Moto
             }
         }
 
+        /// <summary>Sube por la jerarquia mientras el padre siga con tag "Obstacle".</summary>
+        private static GameObject ObstacleRoot(Transform t)
+        {
+            Transform mejor = t;
+            Transform p = t;
+            while (p != null && p.CompareTag("Obstacle")) { mejor = p; p = p.parent; }
+            return mejor.gameObject;
+        }
+
         private void DestroyObstacle(Collider col)
         {
-            // Deshabilitar el collider inmediatamente para que la moto pase sin chocar
-            col.enabled = false;
+            // Destruir el obstaculo COMPLETO, no solo la pieza tocada: un coche
+            // tiene chasis y ruedas como colliders separados y antes quedaban restos.
+            var raizObs = ObstacleRoot(col.transform);
+
+            foreach (var c in raizObs.GetComponentsInChildren<Collider>(true)) c.enabled = false;
 
             if (obstacleBurstPrefab != null)
                 Instantiate(obstacleBurstPrefab, col.bounds.center, Quaternion.identity);
 
-            var dissolve = col.GetComponentInParent<NeoFastRider.Environment.DissolveObstacle>();
+            var dissolve = raizObs.GetComponentInParent<NeoFastRider.Environment.DissolveObstacle>();
             if (dissolve != null)
             {
                 dissolve.Dissolve();
             }
             else
             {
-                Destroy(col.gameObject, 0.15f);
+                Destroy(raizObs, 0.15f);
             }
-
-            Debug.Log($"[Shield] Obstáculo eliminado: {col.gameObject.name}", this);
         }
 
         // ── Construcción del escudo ───────────────────────────────────────────────

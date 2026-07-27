@@ -7,7 +7,7 @@ public class SupplyPowerUp : MonoBehaviour
     [SerializeField] private float rotationSpeed = 90f;
 
     [Header("Float")]
-    [SerializeField] private float floatAmplitude = 0.3f;
+    [SerializeField] private float floatAmplitude = 0.06f;   // muy leve: no debe salir del alcance de la moto
     [SerializeField] private float floatFrequency = 1.5f;
 
     [Header("Material Pulse")]

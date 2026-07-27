@@ -139,7 +139,7 @@ namespace NeoFastRider.Moto
                 bool obstacleWins = foundObstacle &&
                     (!foundDrone || bestObstacle.distance <= bestDroneDist);
                 if (obstacleWins)
-                    TriggerImpact(bestObstacle.point, bestObstacle.collider.gameObject,
+                    TriggerImpact(bestObstacle.point, ObstacleRoot(bestObstacle.collider.transform),
                                   bestObstacle.collider.bounds);
                 else if (foundDrone)
                     TriggerDroneHit(bestDronePoint, bestDroneHealth);
@@ -196,9 +196,32 @@ namespace NeoFastRider.Moto
         }
 
         // ── Impacto en obstáculos ─────────────────────────────────────────
+        /// <summary>
+        /// Devuelve la RAIZ del obstaculo: sube por la jerarquia mientras el padre
+        /// siga etiquetado como "Obstacle". Evita destruir solo el chasis de un
+        /// coche y dejar las ruedas flotando.
+        /// </summary>
+        private static GameObject ObstacleRoot(Transform t)
+        {
+            Transform mejor = t;
+            Transform p = t;
+            while (p != null && p.CompareTag("Obstacle"))
+            {
+                mejor = p;
+                p = p.parent;
+            }
+            return mejor.gameObject;
+        }
+
         private static bool IsObstacle(Transform t)
         {
-            return t.parent != null && t.parent.name == "Obstacles";
+            // Criterio unificado con PlayerShieldController: tag "Obstacle".
+            // Antes se comparaba el NOMBRE del padre ("Obstacles"), lo que solo
+            // funcionaba con la jerarquia del tutorial y dejaba fuera cualquier
+            // obstaculo colocado en otro contenedor.
+            if (t.CompareTag("Obstacle")) return true;
+            if (t.parent != null && t.parent.CompareTag("Obstacle")) return true;
+            return t.parent != null && t.parent.name == "Obstacles";   // compatibilidad hacia atras
         }
 
         private void TriggerImpact(Vector3 hitPoint, GameObject obstacle, Bounds bounds)
@@ -207,6 +230,10 @@ namespace NeoFastRider.Moto
             if (!obstacle.activeSelf || _destroyingObstacles.Contains(id)) return;
 
             _destroyingObstacles.Add(id);
+
+            // Apagar TODOS los colliders del obstaculo para que la moto no
+            // choque con las piezas que aun no han desaparecido (ruedas, etc).
+            foreach (var c in obstacle.GetComponentsInChildren<Collider>(true)) c.enabled = false;
 
             // ── Escala proporcional al tamaño del obstáculo ───────────────
             // extents.magnitude: barril≈0.6, caja≈0.8, pared≈1.5–3

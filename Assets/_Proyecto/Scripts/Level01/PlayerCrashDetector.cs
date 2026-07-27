@@ -21,6 +21,10 @@ namespace NeoFastRider.Level01
         [Tooltip("Si el escudo esta activo, el choque no mata.")]
         [SerializeField] private bool _escudoProtege = true;
 
+        [Header("Texto")]
+        [Tooltip("Mensaje que se muestra en el Game Over. Sin nombres internos de objeto.")]
+        [SerializeField] private string _mensajeChoque = "Has chocado";
+
         private Rigidbody _rb;
         private NeoFastRider.Moto.PlayerShieldController _escudo;
 
@@ -45,7 +49,7 @@ namespace NeoFastRider.Level01
             // El escudo salva: deja que PlayerShieldController destruya el obstaculo.
             if (_escudoProtege && _escudo != null && _escudo.IsShieldActive) return;
 
-            _gameOver.TriggerGameOver("Has chocado contra " + col.transform.root.name);
+            _gameOver.TriggerGameOver(_mensajeChoque);
         }
     }
 }

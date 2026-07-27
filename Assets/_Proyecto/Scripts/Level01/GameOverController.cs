@@ -33,11 +33,32 @@ namespace NeoFastRider.Level01
             if (_gameOver) return;
             _gameOver = true;
 
-            Debug.Log($"[GameOver] Fin de partida: {motivo}");
+            Debug.Log("[GameOver] Fin de partida.");
 
+            AsegurarEventSystem();
             ConstruirUI(motivo);
 
             if (_congelarTiempo) Time.timeScale = 0f;
+        }
+
+        /// <summary>
+        /// Sin EventSystem los botones de Unity UI no reciben clics. Ademas, con el
+        /// nuevo Input System hace falta InputSystemUIInputModule; el modulo antiguo
+        /// no entrega eventos. Se crea aqui si falta, para no depender de la escena.
+        /// </summary>
+        private static void AsegurarEventSystem()
+        {
+            if (UnityEngine.EventSystems.EventSystem.current != null) return;
+            if (FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
+
+            var go = new GameObject("EventSystem_GameOver");
+            go.AddComponent<UnityEngine.EventSystems.EventSystem>();
+
+            var tMod = System.Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+            if (tMod != null) go.AddComponent(tMod);
+            else go.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+
+            Debug.Log("[GameOver] EventSystem creado en tiempo de ejecucion.");
         }
 
         private void ConstruirUI(string motivo)
@@ -130,17 +151,50 @@ namespace NeoFastRider.Level01
             t.color     = Color.white;
         }
 
-        private void Reintentar()
+        /// <summary>
+        /// Comprueba si una escena esta en Build Settings recorriendo los indices.
+        /// No se usa Application.CanStreamedLevelBeLoaded porque en el Editor
+        /// devuelve false aunque la escena si este registrada.
+        /// </summary>
+        private static bool EstaEnBuild(string nombre)
         {
-            Time.timeScale = 1f;
-            SceneManager.LoadScene(_escenaNivel);
+            for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+            {
+                string ruta = SceneUtility.GetScenePathByBuildIndex(i);
+                if (System.IO.Path.GetFileNameWithoutExtension(ruta) == nombre) return true;
+            }
+            return false;
         }
 
-        private void IrAlMenu()
+        /// <summary>Reinicia el nivel desde el principio.</summary>
+        public void Reintentar()
         {
             Time.timeScale = 1f;
-            if (Application.CanStreamedLevelBeLoaded(_escenaMenu)) SceneManager.LoadScene(_escenaMenu);
-            else { Debug.LogWarning($"[GameOver] '{_escenaMenu}' no esta en Build Settings; se reinicia el nivel."); SceneManager.LoadScene(_escenaNivel); }
+
+            if (EstaEnBuild(_escenaNivel))
+            {
+                SceneManager.LoadScene(_escenaNivel);
+                return;
+            }
+
+            // Respaldo: recargar la escena activa por su indice actual.
+            Debug.LogWarning($"[GameOver] '{_escenaNivel}' no esta en Build Settings; se recarga la escena activa.");
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        /// <summary>Vuelve al menu principal.</summary>
+        public void IrAlMenu()
+        {
+            Time.timeScale = 1f;
+
+            if (EstaEnBuild(_escenaMenu))
+            {
+                SceneManager.LoadScene(_escenaMenu);
+                return;
+            }
+
+            Debug.LogWarning($"[GameOver] '{_escenaMenu}' no esta en Build Settings; se reinicia el nivel.");
+            Reintentar();
         }
 
         private void OnDestroy()

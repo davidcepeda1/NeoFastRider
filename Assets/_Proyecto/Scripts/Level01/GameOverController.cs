@@ -13,8 +13,6 @@ namespace NeoFastRider.Level01
     public sealed class GameOverController : MonoBehaviour
     {
         [Header("Escenas")]
-        [Tooltip("Escena de este nivel, para el boton Reintentar.")]
-        [SerializeField] private string _escenaNivel = "Scene_Level01";
         [Tooltip("Escena del menu principal.")]
         [SerializeField] private string _escenaMenu  = "Scene_MainMenu";
 
@@ -166,19 +164,10 @@ namespace NeoFastRider.Level01
             return false;
         }
 
-        /// <summary>Reinicia el nivel desde el principio.</summary>
+        /// <summary>Reinicia el nivel desde el principio (siempre la escena activa, sin importar cuál sea).</summary>
         public void Reintentar()
         {
             Time.timeScale = 1f;
-
-            if (EstaEnBuild(_escenaNivel))
-            {
-                SceneManager.LoadScene(_escenaNivel);
-                return;
-            }
-
-            // Respaldo: recargar la escena activa por su indice actual.
-            Debug.LogWarning($"[GameOver] '{_escenaNivel}' no esta en Build Settings; se recarga la escena activa.");
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 

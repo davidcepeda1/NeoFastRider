@@ -80,6 +80,27 @@ namespace NeoFastRider.Core.LevelGen
         [Tooltip("Rango (± unidades) de desplazamiento lateral aleatorio aplicado en bloque al arreglo de obstáculos de cada chunk, sumado al espejo izquierda↔derecha — le da variedad de izquierda/centro/derecha sin romper el espaciado de cada patrón.")]
         [SerializeField] private float _obstacleLateralJitter = 1.5f;
 
+        [Header("Power-ups (opcional — vacío = ninguno, no afecta niveles que no lo configuren)")]
+        [Tooltip("Prefabs de power-up (láser, escudo, etc.) a repartir por la pista.")]
+        [SerializeField] private GameObject[] _pickupPrefabs;
+        [Range(0f, 1f)]
+        [Tooltip("Probabilidad de aparición al pasar el espaciado mínimo, evaluada solo en tramos rectos SIN obstáculos (así siempre quedan alcanzables sin arriesgar un choque).")]
+        [SerializeField] private float _pickupChance = 0.5f;
+        [Tooltip("Distancia mínima (unidades de pista) entre dos power-ups.")]
+        [SerializeField] private float _pickupMinSpacing = 300f;
+
+        [Header("Enjambres de drones (opcional — vacío = ninguno, no afecta niveles que no lo configuren)")]
+        [SerializeField] private GameObject _dronePrefab;
+        [Range(0f, 1f)]
+        [Tooltip("Probabilidad de aparición al pasar el espaciado mínimo, evaluada solo en tramos rectos SIN obstáculos.")]
+        [SerializeField] private float _droneSwarmChance = 0.35f;
+        [Tooltip("Cuántos drones trae cada enjambre (mín, máx inclusive).")]
+        [SerializeField] private Vector2Int _dronesPerSwarmRange = new Vector2Int(2, 3);
+        [Tooltip("Distancia mínima (unidades de pista) entre dos enjambres.")]
+        [SerializeField] private float _droneSwarmMinSpacing = 450f;
+        [Tooltip("Separación lateral entre drones de un mismo enjambre al aparecer.")]
+        [SerializeField] private float _droneSwarmSpread = 3.5f;
+
         public Transform FinishLineInstance { get; private set; }
 
         /// <summary>
@@ -106,6 +127,9 @@ namespace NeoFastRider.Core.LevelGen
         /// <summary>Cuántos tramos rectos consecutivos van desde la última curva.</summary>
         private int _straightsSinceCurve;
 
+        private float _distanceSinceLastPickup;
+        private float _distanceSinceLastDroneSwarm;
+
         private void Awake()
         {
             Generate();
@@ -123,6 +147,8 @@ namespace NeoFastRider.Core.LevelGen
             _safePathWaypoints.Clear();
             _netHeadingDeg        = 0f;
             _straightsSinceCurve  = _minStraightsBetweenCurves; // permite curva desde el arranque
+            _distanceSinceLastPickup     = 0f;
+            _distanceSinceLastDroneSwarm = 0f;
 
             Vector3    cursorPos = transform.position;
             Quaternion cursorRot = transform.rotation;
@@ -144,6 +170,17 @@ namespace NeoFastRider.Core.LevelGen
                     AppendSafePathForStraight(cursorPos, cursorRot, chosen.ForwardLength, chunkInstance.transform);
                 else
                     AppendSafePathForCurve(cursorPos, cursorRot, chosen.ForwardLength, chosen.TurnAngleY);
+
+                // Power-ups y enjambres de drones: solo en tramos rectos SIN obstáculos (así el
+                // jugador siempre puede tomarlos/pelear sin sumarle riesgo de choque encima) y
+                // pasada la zona segura inicial, igual que los obstáculos.
+                if (chosen.Kind == LevelChunkInfo.ChunkKind.Straight
+                    && distanceSoFar >= _safeStartDistance
+                    && !HasObstacles(chosen))
+                {
+                    TrySpawnPickup(cursorPos, cursorRot, chosen.ForwardLength);
+                    TrySpawnDroneSwarm(cursorPos, cursorRot, chosen.ForwardLength);
+                }
 
                 if (Mathf.Approximately(chosen.TurnAngleY, 0f))
                 {
@@ -225,6 +262,47 @@ namespace NeoFastRider.Core.LevelGen
                 var finish = Instantiate(_finishLinePrefab, cursorPos, cursorRot, _root);
                 FinishLineInstance = finish.transform;
             }
+        }
+
+        /// <summary>Reparte un power-up al azar cerca del centro de un tramo recto vacío, respetando el espaciado mínimo configurado.</summary>
+        private void TrySpawnPickup(Vector3 cursorPos, Quaternion cursorRot, float forwardLength)
+        {
+            _distanceSinceLastPickup += forwardLength;
+            if (_pickupPrefabs == null || _pickupPrefabs.Length == 0) return;
+            if (_distanceSinceLastPickup < _pickupMinSpacing) return;
+            if (Random.value > _pickupChance) return;
+
+            var     prefab = _pickupPrefabs[Random.Range(0, _pickupPrefabs.Length)];
+            float   t      = Random.Range(0.3f, 0.7f);
+            Vector3 pos    = cursorPos + cursorRot * Vector3.forward * (t * forwardLength) + Vector3.up * 1.2f;
+            Instantiate(prefab, pos, cursorRot, _root);
+
+            _distanceSinceLastPickup = 0f;
+        }
+
+        /// <summary>Genera un enjambre de 2-3 drones cerca del centro de un tramo recto vacío, respetando el espaciado mínimo configurado.</summary>
+        private void TrySpawnDroneSwarm(Vector3 cursorPos, Quaternion cursorRot, float forwardLength)
+        {
+            _distanceSinceLastDroneSwarm += forwardLength;
+            if (_dronePrefab == null) return;
+            if (_distanceSinceLastDroneSwarm < _droneSwarmMinSpacing) return;
+            if (Random.value > _droneSwarmChance) return;
+
+            int     count       = Random.Range(_dronesPerSwarmRange.x, _dronesPerSwarmRange.y + 1);
+            float   t           = Random.Range(0.35f, 0.65f);
+            Vector3 swarmCenter = cursorPos + cursorRot * Vector3.forward * (t * forwardLength);
+
+            for (int i = 0; i < count; i++)
+            {
+                float   lateral  = count == 1 ? 0f : Mathf.Lerp(-_droneSwarmSpread, _droneSwarmSpread, i / (float)(count - 1));
+                Vector3 spawnPos = swarmCenter + cursorRot * Vector3.right * lateral;
+
+                var drone = Instantiate(_dronePrefab, spawnPos, cursorRot, _root);
+                var ai    = drone.GetComponent<NeoFastRider.Enemies.DroneAIController>();
+                if (ai != null) ai.ConfigureFrame(swarmCenter, cursorRot);
+            }
+
+            _distanceSinceLastDroneSwarm = 0f;
         }
 
         /// <summary>

@@ -81,6 +81,27 @@ namespace NeoFastRider.Enemies
         private float       _chargeTargetX; // X comprometido al INICIO del wind-up, no al lanzamiento
         private BoxCollider _boxCol;
 
+        // ── Marco de referencia local ─────────────────────────────────────────
+        // minX/maxX (patrullaje) y toda la lógica de X/Z de este script asumen un
+        // eje "lateral" y uno "de profundidad" fijos. En Scene_Level01 (pista recta,
+        // hecha a mano) esos ejes coinciden con el mundo (X/Z), así que por defecto
+        // este marco es identidad y el comportamiento es exactamente el de siempre.
+        // En una pista PROCEDURAL (LevelChunkGenerator) los tramos pueden estar
+        // rotados tras una curva — ConfigureFrame() ancla lateral/profundidad a la
+        // orientación real del tramo donde se generó el enjambre.
+        private Vector3    _originPos = Vector3.zero;
+        private Quaternion _originRot = Quaternion.identity;
+
+        /// <summary>Ancla el marco local del dron (lo llama el spawner en pistas curvas). Sin llamarlo, usa ejes de mundo puros (comportamiento original).</summary>
+        public void ConfigureFrame(Vector3 originPos, Quaternion originRot)
+        {
+            _originPos = originPos;
+            _originRot = originRot;
+        }
+
+        private Vector3 ToLocal(Vector3 world) => Quaternion.Inverse(_originRot) * (world - _originPos);
+        private Vector3 ToWorld(Vector3 local) => _originPos + _originRot * local;
+
         // Umbrales de impacto separados por eje: el jugador esquiva moviéndose >1m en X
         private const float ChargeHitX = 1.0f; // m — basta con 1m lateral para esquivar
         private const float ChargeHitZ = 2.0f; // m — ventana de contacto en profundidad
@@ -110,13 +131,13 @@ namespace NeoFastRider.Enemies
 
         private void Update()
         {
-            float prevX = transform.position.x;
+            float prevLocalX = ToLocal(transform.position).x;
 
             EvaluarEstado();
             EjecutarEstado();
             AplicarSeparacion();
 
-            _lateralVelocity = (transform.position.x - prevX) / Mathf.Max(Time.deltaTime, 0.0001f);
+            _lateralVelocity = (ToLocal(transform.position).x - prevLocalX) / Mathf.Max(Time.deltaTime, 0.0001f);
 
             AplicarLevitacion();
             AplicarBanking();
@@ -160,11 +181,14 @@ namespace NeoFastRider.Enemies
         private void EjecutarPatrullaje()
         {
             _logicalY = _baseY;
-            Vector3 pos = transform.position;
-            pos.x += _patrolDirection * patrolSpeed * Time.deltaTime;
-            if (pos.x >= maxX)      { pos.x = maxX; _patrolDirection = -1f; }
-            else if (pos.x <= minX) { pos.x = minX; _patrolDirection =  1f; }
-            transform.position = pos;
+            Vector3 localPos = ToLocal(transform.position);
+            localPos.x += _patrolDirection * patrolSpeed * Time.deltaTime;
+            if (localPos.x >= maxX)      { localPos.x = maxX; _patrolDirection = -1f; }
+            else if (localPos.x <= minX) { localPos.x = minX; _patrolDirection =  1f; }
+
+            Vector3 world = ToWorld(localPos);
+            world.y = transform.position.y;
+            transform.position = world;
         }
 
         // ── Persecución ───────────────────────────────────────────────────────
@@ -172,17 +196,18 @@ namespace NeoFastRider.Enemies
         {
             if (playerTransform == null) return;
 
-            Vector3 pos    = transform.position;
-            Vector3 target = playerTransform.position;
+            Vector3 localPos    = ToLocal(transform.position);
+            Vector3 localTarget = ToLocal(playerTransform.position);
 
-            pos.z = Mathf.MoveTowards(pos.z, target.z + leadDistance, chaseSpeedZ * Time.deltaTime);
-            pos.x = Mathf.MoveTowards(pos.x, Mathf.Clamp(target.x, minX, maxX), chaseSpeedX * Time.deltaTime);
+            localPos.z = Mathf.MoveTowards(localPos.z, localTarget.z + leadDistance, chaseSpeedZ * Time.deltaTime);
+            localPos.x = Mathf.MoveTowards(localPos.x, Mathf.Clamp(localTarget.x, minX, maxX), chaseSpeedX * Time.deltaTime);
 
-            float targetY = Mathf.Max(target.y + hoverAbovePlayer, _baseY - 2f);
+            float targetY = Mathf.Max(playerTransform.position.y + hoverAbovePlayer, _baseY - 2f);
             _logicalY     = Mathf.MoveTowards(_logicalY, targetY, chaseSpeedY * Time.deltaTime);
-            pos.y         = _logicalY;
 
-            transform.position = pos;
+            Vector3 world = ToWorld(localPos);
+            world.y = _logicalY;
+            transform.position = world;
         }
 
         // ── Wind-Up (telegráfico): se congela y vibra antes de embestir ───────
@@ -194,7 +219,7 @@ namespace NeoFastRider.Enemies
             // moverse lateralmente y salir de esta franja; si se mueve, la trayectoria
             // del dron ya no lo perseguirá en X.
             if (playerTransform != null)
-                _chargeTargetX = playerTransform.position.x;
+                _chargeTargetX = ToLocal(playerTransform.position).x;
         }
 
         private void EjecutarWindUp()
@@ -211,13 +236,12 @@ namespace NeoFastRider.Enemies
         {
             if (playerTransform == null) { _state = DroneState.Chasing; return; }
 
-            // X viene de IniciarWindUp (comprometida al inicio del wind-up).
+            // X viene de IniciarWindUp (comprometida al inicio del wind-up, en espacio local).
             // Z e Y son la posición actual del jugador para que el dron lo alcance en profundidad.
-            _chargeTarget = new Vector3(
-                _chargeTargetX,
-                playerTransform.position.y,
-                playerTransform.position.z
-            );
+            Vector3 localTarget = ToLocal(playerTransform.position);
+            localTarget.x = _chargeTargetX;
+            _chargeTarget   = ToWorld(localTarget);
+            _chargeTarget.y = playerTransform.position.y;
             _chargeTime     = 0f;
             CanDamagePlayer = true;
             _state          = DroneState.Charging;
@@ -238,7 +262,7 @@ namespace NeoFastRider.Enemies
             // Así esquivar = presionar izquierda/derecha ≥1m durante la telegrafía (0.6s).
             if (CanDamagePlayer && playerTransform != null)
             {
-                Vector3 delta = playerTransform.position - transform.position;
+                Vector3 delta = ToLocal(playerTransform.position) - ToLocal(transform.position);
                 if (Mathf.Abs(delta.x) < ChargeHitX && Mathf.Abs(delta.z) < ChargeHitZ)
                     GetComponent<DroneCollisionHandler>()?.ApplyChargeDamage(null);
             }
@@ -281,12 +305,16 @@ namespace NeoFastRider.Enemies
 
             if (push.sqrMagnitude < 0.001f) return;
 
-            Vector3 pos = transform.position;
-            pos.x += push.x * separationSpeed * Time.deltaTime;
-            pos.z += push.z * separationSpeed * Time.deltaTime;
+            Vector3 localPush = Quaternion.Inverse(_originRot) * push;
+            Vector3 localPos  = ToLocal(transform.position);
+            localPos.x += localPush.x * separationSpeed * Time.deltaTime;
+            localPos.z += localPush.z * separationSpeed * Time.deltaTime;
             // Respetar los límites laterales de patrullaje incluso con la separación
-            pos.x = Mathf.Clamp(pos.x, minX, maxX);
-            transform.position = pos;
+            localPos.x = Mathf.Clamp(localPos.x, minX, maxX);
+
+            Vector3 world = ToWorld(localPos);
+            world.y = transform.position.y;
+            transform.position = world;
         }
 
         // ── Levitación: seno sobre _logicalY (no acumulativo) ────────────────
@@ -321,11 +349,14 @@ namespace NeoFastRider.Enemies
         private void OnDrawGizmosSelected()
         {
             Vector3 c = transform.position;
+            float   localZ = ToLocal(c).z;
+            Vector3 minWorld = ToWorld(new Vector3(minX, 0f, localZ)); minWorld.y = c.y;
+            Vector3 maxWorld = ToWorld(new Vector3(maxX, 0f, localZ)); maxWorld.y = c.y;
 
             Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(new Vector3(minX, c.y, c.z), new Vector3(maxX, c.y, c.z));
-            Gizmos.DrawWireSphere(new Vector3(minX, c.y, c.z), 0.2f);
-            Gizmos.DrawWireSphere(new Vector3(maxX, c.y, c.z), 0.2f);
+            Gizmos.DrawLine(minWorld, maxWorld);
+            Gizmos.DrawWireSphere(minWorld, 0.2f);
+            Gizmos.DrawWireSphere(maxWorld, 0.2f);
 
             Gizmos.color = new Color(1f, 0.4f, 0f, 0.25f);
             Gizmos.DrawWireSphere(c, detectionDistance);

@@ -712,8 +712,8 @@ MonoBehaviour:
   _curveRightPrefab: {fileID: 7818745660729607764, guid: 3feb417e609a964b8bfe5eea6fe265f7, type: 3}
   _curveChance: 0.15
   _minStraightsBetweenCurves: 18
-  _totalTrackLength: 3000
-  _randomSeed: 1
+  _totalTrackLength: 4500
+  _randomSeed: 3
   _useFixedSeed: 1
   _safeStartDistance: 150
   _finishLinePrefab: {fileID: 7480155334938035802, guid: d46a83c0dd7df1daabf427c4ae0e6d23, type: 3}
@@ -748,13 +748,15 @@ MonoBehaviour:
   _buildingPlacementAttempts: 9
   _curveSpacingFactor: 0.5
   _obstacleLateralJitter: 1.5
-  _pickupPrefabs: []
-  _pickupChance: 0.5
-  _pickupMinSpacing: 300
-  _dronePrefab: {fileID: 0}
-  _droneSwarmChance: 0.35
+  _pickupPrefabs:
+  - {fileID: 3142218475602493994, guid: ed8c9f3d05f4f6747b877be3e70471a1, type: 3}
+  - {fileID: 1063326980206293652, guid: 54e101ce14761a747bc5f1fae60bf2e0, type: 3}
+  _pickupChance: 0.6
+  _pickupMinSpacing: 350
+  _dronePrefab: {fileID: 6784522560581601747, guid: 648d7611a6b9ea1fc9253c9d5b1134fd, type: 3}
+  _droneSwarmChance: 0.4
   _dronesPerSwarmRange: {x: 2, y: 3}
-  _droneSwarmMinSpacing: 450
+  _droneSwarmMinSpacing: 500
   _droneSwarmSpread: 3.5
 --- !u!4 &871046896
 Transform:
@@ -1910,7 +1912,7 @@ MonoBehaviour:
   _motoForward: {fileID: 1301094803}
   _playerHealth: {fileID: 1301094807}
   _generator: {fileID: 871046895}
-  _timeLimitSeconds: 260
+  _timeLimitSeconds: 390
   _startBaseSpeedKmh: 32
   _endBaseSpeedKmh: 32
   _startBoostSpeedKmh: 50

@@ -19,7 +19,6 @@ namespace NeoFastRider.Level01
         [SerializeField] private string _subtitulo = "Has llegado a la meta";
 
         [Header("Escenas")]
-        [SerializeField] private string _escenaNivel    = "Scene_Level01";
         [SerializeField] private string _escenaTutorial = "Scene_TutorialLevel";
         [SerializeField] private string _escenaMenu     = "Scene_MainMenu";
 
@@ -91,7 +90,7 @@ namespace NeoFastRider.Level01
             Texto(go.transform, _titulo,    96, new Color(0f, 1f, 0.75f), new Vector2(0f, 210f), 900f);
             Texto(go.transform, _subtitulo, 34, new Color(0.8f, 1f, 1f, 0.9f), new Vector2(0f, 120f), 900f);
 
-            Boton(go.transform, "REPETIR NIVEL",    new Vector2(0f,  20f), () => Cargar(_escenaNivel));
+            Boton(go.transform, "REPETIR NIVEL",    new Vector2(0f,  20f), () => Cargar(SceneManager.GetActiveScene().name));
             Boton(go.transform, "TUTORIAL",         new Vector2(0f, -70f), () => Cargar(_escenaTutorial));
             Boton(go.transform, "MENU PRINCIPAL",   new Vector2(0f,-160f), () => Cargar(_escenaMenu));
         }

@@ -52,6 +52,19 @@ namespace NeoFastRider.UI
         {
 #if NOESIS
             var noesisView = GetComponent<NoesisView>();
+#if UNITY_EDITOR_LINUX
+            // Bug conocido: libNoesis.so (build Linux) crashea el Editor (SIGSEGV null-deref
+            // dentro de libgallium/Mesa radeonsi-ACO) apenas NoesisView intenta renderizar en
+            // este equipo. Se agotaron los flags de lanzamiento del Editor sin encontrar uno que
+            // evite el crash y mantenga el HUD visible (ver memoria del proyecto). Como este
+            // símbolo solo existe compilando el Editor en Linux, no afecta a Windows ni a builds.
+            if (noesisView != null)
+            {
+                noesisView.enabled = false;
+                Debug.LogWarning("[HelmetVisorController] NoesisView deshabilitado en Linux Editor (crash conocido de libNoesis.so + Mesa/ACO). Probar el HUD real en Windows o en una build.", this);
+                return;
+            }
+#endif
             if (noesisView != null && noesisView.Content != null)
             {
                 noesisView.Content.DataContext = _vm;
